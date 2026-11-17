@@ -1,6 +1,6 @@
 # 北海道粉雪滑行
 
-A browser ski game on a Niseko-style mountain: birch runs, snow-loaded pines, and Mt. Yotei across the valley. Vite and Three.js, with a PBR snow surface, soft shadows, bloom, and a night-skiing mode.
+A browser ski game on a Niseko-style mountain: snow-loaded firs, a corduroy piste, and Mt. Yotei across the valley. Vite and Three.js. The default light is a low peach sunset; N switches to night skiing.
 
 ## Play
 
