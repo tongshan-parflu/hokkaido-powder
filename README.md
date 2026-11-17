@@ -19,6 +19,7 @@ Open [http://127.0.0.1:4731](http://127.0.0.1:4731).
 | S / ↓ | Brake |
 | Space | Jump |
 | N | Day / night (ナイター) |
+| M | Toggle snowfall |
 | Enter | Start, or ski again |
 
 Pass the red-and-white gates, collect snowflakes and Ezo foxes, and stay off the trees and rocks. The course is about two kilometers, from the birch ridge through an open bowl to the valley. 画质 switches 极致 / 细腻 / 流畅. 极致 adds SSAO and a larger shadow map.

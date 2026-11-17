@@ -41,7 +41,7 @@ function skyMaterial() {
     depthWrite: false,
     uniforms: {
       uNight: { value: 0 },
-      uSunDir: { value: new THREE.Vector3(-0.62, 0.72, -0.28).normalize() },
+      uSunDir: { value: new THREE.Vector3(-0.92, 0.32, -0.22).normalize() },
     },
     vertexShader: `
       varying vec3 vDir;
@@ -70,8 +70,8 @@ function skyMaterial() {
       void main() {
         vec3 dir = normalize(vDir);
         float h = dir.y;
-        vec3 dayHorizon = vec3(0.90, 0.62, 0.46);
-        vec3 dayZenith = vec3(0.42, 0.58, 0.82);
+        vec3 dayHorizon = vec3(0.78, 0.86, 0.95);
+        vec3 dayZenith = vec3(0.12, 0.34, 0.78);
         vec3 nightHorizon = vec3(0.10, 0.13, 0.22);
         vec3 nightZenith = vec3(0.02, 0.03, 0.07);
         vec3 horizon = mix(dayHorizon, nightHorizon, uNight);
@@ -81,7 +81,7 @@ function skyMaterial() {
         vec2 skyUv = dir.xz / max(0.15, dir.y + 0.35);
         float clouds = fbm(skyUv * 1.6);
         float wispy = smoothstep(0.48, 0.78, clouds) * smoothstep(0.55, 0.05, h);
-        col = mix(col, vec3(1.0, 0.93, 0.88), wispy * (1.0 - uNight) * 0.55);
+        col = mix(col, vec3(1.0, 0.97, 0.94), wispy * (1.0 - uNight) * 0.12);
         float sun = pow(max(dot(dir, normalize(uSunDir)), 0.0), 280.0);
         float glow = pow(max(dot(dir, normalize(uSunDir)), 0.0), 6.0);
         col += vec3(1.0, 0.78, 0.5) * sun * (1.0 - uNight);
@@ -103,19 +103,19 @@ export function createPipeline(scene, camera) {
   });
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.02;
+  renderer.toneMappingExposure = 0.92;
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.setClearColor(0xd7c8bc, 1);
 
-  scene.fog = new THREE.FogExp2(0xe4d2c4, 0.00072);
+  scene.fog = new THREE.FogExp2(0xc5d6ea, 0.00028);
   scene.background = new THREE.Color(0xd9cfc6);
 
-  const hemi = new THREE.HemisphereLight(0xffe4c8, 0x8ea4bf, 0.42);
+  const hemi = new THREE.HemisphereLight(0xc5daf5, 0x6d8cbc, 0.55);
   scene.add(hemi);
-  const ambient = new THREE.AmbientLight(0xd5e0ee, 0.18);
+  const ambient = new THREE.AmbientLight(0x9eb0c8, 0.06);
   scene.add(ambient);
-  const sun = new THREE.DirectionalLight(0xffc48a, 2.5);
+  const sun = new THREE.DirectionalLight(0xffe0b0, 3.6);
   sun.castShadow = true;
   sun.shadow.mapSize.set(1024, 1024);
   sun.shadow.bias = -0.00025;
@@ -207,20 +207,20 @@ export function createPipeline(scene, camera) {
     hemi.intensity = on ? 0.16 : 0.42;
     hemi.color.set(on ? 0x1c2744 : 0xffe4c8);
     ambient.intensity = on ? 0.08 : 0.18;
-    scene.fog.color.set(on ? 0x1a2436 : 0xd9cfc6);
-    scene.fog.density = on ? 0.00115 : 0.00072;
-    scene.environmentIntensity = on ? 0.16 : 0.7;
-    renderer.toneMappingExposure = on ? 0.7 : 1.02;
+    scene.fog.color.set(on ? 0x1a2436 : 0xc5d6ea);
+    scene.fog.density = on ? 0.0009 : 0.00028;
+    scene.environmentIntensity = on ? 0.12 : 0.45;
+    renderer.toneMappingExposure = on ? 0.62 : 0.92;
     bloom.strength = on ? 0.32 : 0.15;
     document.body.dataset.night = on ? '1' : '0';
   }
 
   function update(target) {
     sky.position.copy(camera.position);
-    const lift = night ? 48 : 34;
-    sun.position.set(target.x - 28, target.y + lift, target.z - 16);
+    const lift = night ? 40 : 18;
+    sun.position.set(target.x - 62, target.y + lift, target.z - 14);
     sun.target.position.set(target.x, target.y + 1, target.z + 8);
-    const span = 22;
+    const span = 36;
     const cam = sun.shadow.camera;
     cam.left = -span;
     cam.right = span;

@@ -65,12 +65,11 @@ export function terrainHeight(x, z) {
     y -= bowl * radial * 7.5;
   }
 
-  const shoulder = smooth01((adx - 16) / 78);
-  y += shoulder * shoulder * (26 + 10 * Math.sin(z * 0.004 + 0.4));
-  const side = dx > 0 ? 1 : -1;
-  const ridgeA = Math.exp(-((dx - side * 62) ** 2) / (24 * 24) - ((z - 480) ** 2) / (220 * 220));
-  const ridgeB = Math.exp(-((dx + 70) ** 2) / (26 * 26) - ((z - 1540) ** 2) / (260 * 260));
-  y += ridgeA * 14 + ridgeB * 12;
+  const offPiste = smooth01((adx - 9) / 12);
+  y += Math.sin(x * 0.31 + z * 0.12) * (0.05 + offPiste * 0.22);
+  y += Math.sin(x * 0.87 + z * 0.63) * offPiste * 0.05;
+  const shoulder = smooth01((adx - 28) / 80);
+  y += shoulder * shoulder * 12;
 
   if (adx > HALF_WIDTH - 18) {
     const k = (adx - (HALF_WIDTH - 18)) / 18;
@@ -156,26 +155,24 @@ export function generateCourse() {
     obstacles.push({ x, z, r, kind: 'tree' });
   }
 
-  for (let z = 70; z < COURSE_LENGTH - 24; z += 13) {
-    const bowl = z > 880 && z < 1320;
-    if (bowl && rand() > 0.42) continue;
-    const cx = courseCenter(z + 4);
-    for (const side of [-1, 1]) {
-      const cluster = bowl ? 1 + Math.floor(rand() * 2) : 2 + Math.floor(rand() * 3);
-      for (let k = 0; k < cluster; k++) {
-        const spread = (bowl ? 34 : 17.4) + rand() * (bowl ? 40 : 32);
-        const zz = z + rand() * 12;
-        const xx = cx + side * spread;
-        const birchRun = zz < 860;
-        const coniferRun = zz > 1280;
-        let kind = 'pine';
-        if (birchRun) kind = rand() < (side < 0 ? 0.84 : 0.62) ? 'birch' : 'pine';
-        else if (coniferRun) kind = rand() < 0.16 ? 'birch' : 'pine';
-        else kind = rand() < 0.35 ? 'birch' : 'pine';
-        const scale = 0.85 + rand() * 0.5;
-        pushTree(xx, zz, kind, scale);
-      }
+  function grove(z, side, kind, n, near, far) {
+    const anchor = courseCenter(z) + side * (near + rand() * (far - near));
+    for (let k = 0; k < n; k++) {
+      const ang = rand() * Math.PI * 2;
+      const rad = Math.pow(rand(), 0.65) * 8;
+      pushTree(anchor + Math.cos(ang) * rad, z + (rand() - 0.5) * 10, kind, 0.7 + rand() * 0.85);
     }
+  }
+  for (let z = 36; z < 980; z += 16) {
+    grove(z, -1, rand() < 0.8 ? 'birch' : 'pine', 5, 18, 26);
+    grove(z, 1, rand() < 0.45 ? 'birch' : 'pine', 4, 18, 30);
+    if (rand() > 0.35) grove(z + 4, -1, 'birch', 4, 28, 46);
+    if (rand() > 0.45) grove(z + 7, 1, 'pine', 3, 30, 48);
+  }
+  for (let z = 980; z < COURSE_LENGTH - 40; z += 20) {
+    if (z > 880 && z < 1320 && rand() > 0.55) continue;
+    grove(z, -1, rand() < 0.2 ? 'birch' : 'pine', 4, 20, 44);
+    grove(z, 1, 'pine', 4, 20, 42);
   }
 
   function pushRock(x, z, scale, decorative) {

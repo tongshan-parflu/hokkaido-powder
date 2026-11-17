@@ -6,7 +6,7 @@ import {
   slopeElevation,
   terrainHeight,
 } from './course.js';
-import { createBirchParts, createPineGeometry } from './trees.js';
+import { addHillForest, createBirchParts, createPineGeometry } from './trees.js';
 import { puffTexture } from './materials.js';
 
 function std(color, roughness, metalness = 0, extras = {}) {
@@ -48,34 +48,54 @@ function signTexture(text) {
 }
 
 function yoteiGeometry(radius, height) {
-  const geo = new THREE.ConeGeometry(radius, height, 48, 24, true);
-  const pos = geo.attributes.position;
-  const colors = new Float32Array(pos.count * 3);
-  const rock = new THREE.Color(0x4e463f);
-  const forest = new THREE.Color(0x24362e);
-  const snow = new THREE.Color(0xffffff);
+  const radial = 80;
+  const rows = 36;
+  const positions = [];
+  const colors = [];
+  const indices = [];
+  const forest = new THREE.Color(0x1a3328);
+  const rock = new THREE.Color(0x5c564e);
+  const snow = new THREE.Color(0xf7f9fc);
+  const gully = new THREE.Color(0xc5d0dc);
   const color = new THREE.Color();
-  for (let i = 0; i < pos.count; i++) {
-    let x = pos.getX(i);
-    let y = pos.getY(i);
-    let z = pos.getZ(i);
-    const rad = Math.hypot(x, z);
-    if (rad > 1) {
-      const ang = Math.atan2(z, x);
-      const n = 1 + 0.018 * Math.sin(ang * 7) + 0.012 * Math.sin(ang * 3 + y * 0.01);
-      x = (x / rad) * rad * n;
-      z = (z / rad) * rad * n;
-      pos.setX(i, x);
-      pos.setZ(i, z);
+  const stride = radial + 1;
+  for (let iy = 0; iy <= rows; iy++) {
+    const t = iy / rows;
+    const u = Math.min(t / 0.9, 1);
+    let r = t > 0.9 ? radius * 0.11 : radius * (1 - Math.pow(u, 0.92));
+    const y = t * height;
+    for (let ix = 0; ix <= radial; ix++) {
+      const ang = (ix / radial) * Math.PI * 2;
+      const gullies = t > 0.42 && t < 0.9 ? Math.sin(ang * 14) * 0.045 * r : 0;
+      const rr = Math.max(0, r + gullies);
+      positions.push(Math.cos(ang) * rr, y, Math.sin(ang) * rr);
+      if (t < 0.4) color.copy(forest);
+      else if (t < 0.52) color.copy(forest).lerp(rock, (t - 0.4) / 0.12);
+      else color.copy(snow);
+      if (t > 0.5 && t < 0.9) {
+        const shade = 0.5 + 0.5 * Math.sin(ang * 14);
+        color.lerp(gully, shade * 0.45);
+      }
+      colors.push(color.r, color.g, color.b);
     }
-    const t = (y + height / 2) / height;
-    color.copy(forest).lerp(rock, smooth(t, 0.22, 0.42));
-    color.lerp(snow, smooth(t, 0.5, 0.66));
-    colors[i * 3] = color.r;
-    colors[i * 3 + 1] = color.g;
-    colors[i * 3 + 2] = color.b;
   }
-  geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  const topCenter = positions.length / 3;
+  positions.push(0, height * 0.985, 0);
+  colors.push(snow.r, snow.g, snow.b);
+  for (let iy = 0; iy < rows; iy++) {
+    for (let ix = 0; ix < radial; ix++) {
+      const a = iy * stride + ix;
+      indices.push(a, a + stride, a + 1, a + 1, a + stride, a + stride + 1);
+    }
+  }
+  const capRow = rows * stride;
+  for (let ix = 0; ix < radial; ix++) {
+    indices.push(topCenter, capRow + ix + 1, capRow + ix);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  geo.setIndex(indices);
   geo.computeVertexNormals();
   return geo;
 }
@@ -176,6 +196,56 @@ function makeDeer() {
   return group;
 }
 
+function addDistantRanges(scene, foot) {
+  const ranges = [
+    { x: -200, z: 2600, r: 900, h: 220, c: 0x9aafc4 },
+    { x: 700, z: 2400, r: 740, h: 180, c: 0x8aa0b4 },
+    { x: -1100, z: 2100, r: 620, h: 150, c: 0xb7c6d4 },
+    { x: 200, z: 2900, r: 1100, h: 260, c: 0xc5d2e0 },
+  ];
+  for (const range of ranges) {
+    const geo = new THREE.ConeGeometry(range.r, range.h, 6, 1);
+    const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: range.c }));
+    mesh.position.set(range.x, foot + range.h * 0.35, range.z);
+    scene.add(mesh);
+  }
+}
+
+function buildHut(scene, z, dx) {
+  const x = courseCenter(z) + dx;
+  const y = terrainHeight(x, z);
+  const wood = std(0x7a5340, 0.7);
+  const group = new THREE.Group();
+  group.position.set(x, y, z);
+  const hall = new THREE.Mesh(new THREE.BoxGeometry(8, 3.2, 5), wood);
+  hall.position.y = 1.6;
+  hall.castShadow = true;
+  const roof = new THREE.Mesh(new THREE.BoxGeometry(9.2, 0.55, 6.2), std(0xf7f8fb, 0.8));
+  roof.position.y = 3.4;
+  roof.castShadow = true;
+  const winMat = new THREE.MeshStandardMaterial({
+    color: 0xffd7a1,
+    emissive: 0xffb15e,
+    emissiveIntensity: 0.45,
+    roughness: 0.2,
+  });
+  const win = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 1.2), winMat);
+  win.position.set(0, 1.8, 2.52);
+  const sign = new THREE.Mesh(
+    new THREE.PlaneGeometry(3.4, 0.9),
+    new THREE.MeshStandardMaterial({ map: signTexture('山小屋'), roughness: 0.6 }),
+  );
+  sign.position.set(0, 2.7, 2.56);
+  group.add(hall, roof, win, sign);
+  scene.add(group);
+  const lamp = new THREE.PointLight(0xffb15a, 0.6, 14, 2);
+  lamp.position.set(x, y + 2.4, z + 3);
+  lamp.userData.night = 8;
+  lamp.userData.day = 0.35;
+  scene.add(lamp);
+  return lamp;
+}
+
 function cableBetween(a, b, material) {
   const dir = new THREE.Vector3().subVectors(b, a);
   const len = dir.length();
@@ -186,32 +256,26 @@ function cableBetween(a, b, material) {
 }
 
 export function createWorld(scene, course) {
-  const yoteiX = 300;
-  const yoteiZ = 680;
-  const yoteiH = 560;
-  const yoteiR = 145;
-  const foot = slopeElevation(yoteiZ) - 200;
+  const yoteiH = 260;
+  const yoteiR = yoteiH * 2;
+  const yoteiX = -560;
+  const yoteiZ = 1280;
+  const foot = 390;
   const yotei = new THREE.Mesh(
     yoteiGeometry(yoteiR, yoteiH),
     new THREE.MeshBasicMaterial({ vertexColors: true }),
   );
-  yotei.position.set(yoteiX, foot + yoteiH / 2, yoteiZ);
+  yotei.position.set(yoteiX, foot, yoteiZ);
   scene.add(yotei);
+  addDistantRanges(scene, foot);
 
   const sea = new THREE.Mesh(
-    new THREE.PlaneGeometry(2800, 2200, 1, 1),
-    std(0x3d5c6e, 0.18, 0.55),
+    new THREE.PlaneGeometry(3200, 2000, 1, 1),
+    new THREE.MeshBasicMaterial({ color: 0x3c6274 }),
   );
   sea.rotation.x = -Math.PI / 2;
-  sea.position.set(yoteiX + 520, foot + 6, yoteiZ + 80);
+  sea.position.set(yoteiX - 900, 40, yoteiZ);
   scene.add(sea);
-  const coast = new THREE.Mesh(
-    new THREE.PlaneGeometry(900, 1600, 1, 1),
-    std(0x6d7368, 0.9, 0),
-  );
-  coast.rotation.x = -Math.PI / 2;
-  coast.position.set(yoteiX + 280, foot + 14, yoteiZ);
-  scene.add(coast);
 
   const { trunkGeo, trunkMat, crown, crownMat } = createBirchParts();
   const pineGeo = createPineGeometry();
@@ -243,6 +307,7 @@ export function createWorld(scene, course) {
     fill(pineMesh, pines);
     scene.add(pineMesh);
   }
+  addHillForest(scene);
 
   const rockGeo = new THREE.IcosahedronGeometry(0.9, 1);
   const rockPos = rockGeo.attributes.position;
@@ -332,10 +397,11 @@ export function createWorld(scene, course) {
     emissive: 0xffb15a,
     emissiveIntensity: 0.25,
   });
-  const gondola = buildLift(scene, -34, 160, 1680, 150, metal, cabinMat, glass, 1.1);
-  const chair = buildLift(scene, 32, 400, 1500, 170, metal, std(0x243044, 0.5), glass, 0.55);
+  const gondola = buildLift(scene, -18, 36, 920, 78, metal, cabinMat, glass, 1.15);
+  const chair = buildLift(scene, 17, 58, 780, 86, metal, std(0x243044, 0.5), glass, 0.7);
 
   const lodge = buildLodge(scene);
+  const hutLamp = buildHut(scene, 108, 16);
   const cranes = [];
   for (let i = 0; i < 5; i++) {
     const bird = makeCrane();
@@ -355,9 +421,9 @@ export function createWorld(scene, course) {
   });
 
   const signs = [
-    [120, -15, '白樺林'],
-    [640, 16, '羊蹄コース'],
-    [1500, -16, '中級'],
+    [32, 8, '羊蹄コース'],
+    [96, -12, '白樺林'],
+    [240, 14, '中級'],
   ];
   for (const [z, dx, text] of signs) {
     const x = courseCenter(z) + dx;
@@ -366,7 +432,7 @@ export function createWorld(scene, course) {
     post.position.set(x, y + 0.85, z);
     post.castShadow = true;
     const board = new THREE.Mesh(
-      new THREE.PlaneGeometry(2.3, 1),
+      new THREE.PlaneGeometry(4.4, 1.5),
       new THREE.MeshStandardMaterial({ map: signTexture(text), roughness: 0.7 }),
     );
     board.position.set(x, y + 1.8, z);
@@ -374,7 +440,7 @@ export function createWorld(scene, course) {
     scene.add(post, board);
   }
 
-  const nightLights = [...lodge.lights, ...gondola.lamps];
+  const nightLights = [...lodge.lights, ...gondola.lamps, ...chair.lamps, hutLamp];
   const windows = lodge.windows;
 
   let time = 0;

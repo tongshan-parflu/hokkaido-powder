@@ -15,7 +15,7 @@ export function createSnowMaterial() {
     metalness: 0.02,
     envMapIntensity: 0.85,
   });
-  material.userData.sunDir = new THREE.Vector3(-0.62, 0.72, -0.28).normalize();
+  material.userData.sunDir = new THREE.Vector3(-0.92, 0.32, -0.22).normalize();
 
   const loader = new THREE.TextureLoader();
   const apply = (name, slot, srgb) => {
@@ -33,23 +33,39 @@ export function createSnowMaterial() {
   material.onBeforeCompile = (shader) => {
     shader.uniforms.uSunDir = { value: material.userData.sunDir };
     shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', '#include <common>\nvarying vec3 vSnowWorld;')
+      .replace(
+        '#include <common>',
+        '#include <common>\nattribute float aPiste;\nvarying vec3 vSnowWorld;\nvarying float vPiste;',
+      )
       .replace(
         '#include <worldpos_vertex>',
-        '#include <worldpos_vertex>\n\tvSnowWorld = worldPosition.xyz;',
+        '#include <worldpos_vertex>\n\tvSnowWorld = worldPosition.xyz;\n\tvPiste = aPiste;',
       );
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', '#include <common>\nvarying vec3 vSnowWorld;\nuniform vec3 uSunDir;')
+      .replace(
+        '#include <common>',
+        '#include <common>\nvarying vec3 vSnowWorld;\nvarying float vPiste;\nuniform vec3 uSunDir;',
+      )
+      .replace(
+        '#include <color_fragment>',
+        `#include <color_fragment>
+        {
+          float cord = sin(vSnowWorld.x * 6.0);
+          vec3 powder = vec3(0.74, 0.82, 0.94);
+          diffuseColor.rgb = mix(diffuseColor.rgb * powder, diffuseColor.rgb, vPiste);
+          diffuseColor.rgb += vec3(0.035) * cord * vPiste;
+        }`,
+      )
       .replace(
         '#include <emissivemap_fragment>',
         `#include <emissivemap_fragment>
         {
-          vec2 cell = floor(vSnowWorld.xz * 4.5);
+          vec2 cell = floor(vSnowWorld.xz * 6.0);
           float n = fract(sin(dot(cell, vec2(127.1, 311.7))) * 43758.5453);
-          float glint = smoothstep(0.986, 0.998, n);
+          float glint = smoothstep(0.988, 0.999, n);
           vec3 viewDir = normalize(cameraPosition - vSnowWorld);
-          float spec = pow(max(dot(normalize(normal), normalize(uSunDir + viewDir)), 0.0), 18.0);
-          totalEmissiveRadiance += vec3(0.85, 0.9, 1.0) * glint * spec * 0.9;
+          float spec = pow(max(dot(normalize(normal), normalize(uSunDir + viewDir)), 0.0), 20.0);
+          totalEmissiveRadiance += vec3(1.0, 0.95, 0.85) * glint * spec * 0.7;
         }`,
       );
   };

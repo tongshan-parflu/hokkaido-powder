@@ -58,7 +58,7 @@ const env = { height: terrainHeight, collide };
 const combo = { value: 0 };
 
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(52, 1, 0.25, 8000);
+const camera = new THREE.PerspectiveCamera(66, 1, 0.2, 9000);
 const desiredPos = new THREE.Vector3();
 const desiredLook = new THREE.Vector3();
 const camPos = new THREE.Vector3();
@@ -194,8 +194,8 @@ function desiredCamera(drift, extraUp) {
   const aheadZ = Math.cos(rider.heading);
   const rx = Math.cos(rider.heading);
   const rz = -Math.sin(rider.heading);
-  const back = 12.2 + Math.min(rider.speed, 28) * 0.05;
-  const up = 5.1 + extraUp + Math.min(rider.speed, 28) * 0.02;
+  const back = 6.6 + Math.min(rider.speed, 30) * 0.035;
+  const up = 2.35 + extraUp + Math.min(rider.speed, 30) * 0.012;
   desiredPos.set(
     rider.x - aheadX * back + rx * drift,
     rider.y + up,
@@ -203,8 +203,8 @@ function desiredCamera(drift, extraUp) {
   );
   const floorY = terrainHeight(desiredPos.x, desiredPos.z) + 1.45;
   if (desiredPos.y < floorY) desiredPos.y = floorY;
-  const look = 14 + Math.min(rider.speed, 30) * 0.2;
-  desiredLook.set(rider.x + aheadX * look, rider.y + 2.4, rider.z + aheadZ * look);
+  const look = 8 + Math.min(rider.speed, 32) * 0.16;
+  desiredLook.set(rider.x + aheadX * look, rider.y + 1.05, rider.z + aheadZ * look);
 }
 
 function updateCamera(dt, drift, extraUp) {
@@ -221,7 +221,7 @@ function updateCamera(dt, drift, extraUp) {
   camera.position.copy(camPos);
   camera.lookAt(lookAt);
   const tuck = mode === 'play' && keys.up && !keys.down;
-  const targetFov = tuck ? 70 : 58;
+  const targetFov = 66 + Math.min(skier.rider.speed, 32) * 0.4 + (tuck ? 8 : 0);
   if (Math.abs(camera.fov - targetFov) > 0.05) {
     camera.fov += (targetFov - camera.fov) * (1 - Math.exp(-4 * dt));
     camera.updateProjectionMatrix();
@@ -415,6 +415,12 @@ window.addEventListener('keydown', (e) => {
     beginRun();
     return;
   }
+  if (e.code === 'KeyM' && !e.repeat) {
+    effects.setSnowing(!effects.snowing);
+    const snowBtn = document.getElementById('btn-snow');
+    if (snowBtn) snowBtn.textContent = effects.snowing ? '停雪' : '降雪';
+    return;
+  }
   if (e.code === 'KeyN' && !e.repeat) {
     const next = document.body.dataset.night !== '1';
     pipeline.setNight(next);
@@ -469,6 +475,11 @@ function cycleQuality() {
 document.getElementById('btn-quality')?.addEventListener('click', (e) => {
   e.stopPropagation();
   cycleQuality();
+});
+document.getElementById('btn-snow')?.addEventListener('click', (e) => {
+  e.stopPropagation();
+  effects.setSnowing(!effects.snowing);
+  e.currentTarget.textContent = effects.snowing ? '停雪' : '降雪';
 });
 document.getElementById('btn-night')?.addEventListener('click', (e) => {
   e.stopPropagation();

@@ -25,6 +25,7 @@ function makePoints(count, size, attenuation, opacity) {
 export function createEffects(scene) {
   const snowCount = 880;
   const snow = makePoints(snowCount, 4.4, false, 0.82);
+  snow.points.visible = false;
   scene.add(snow.points);
   const flakes = [];
   for (let i = 0; i < snowCount; i++) {
@@ -65,9 +66,9 @@ export function createEffects(scene) {
   const trail = new THREE.Mesh(
     trailGeo,
     new THREE.MeshBasicMaterial({
-      color: 0xd5deea,
+      color: 0xb7c6da,
       transparent: true,
-      opacity: 0.55,
+      opacity: 0.4,
       depthWrite: false,
       side: THREE.DoubleSide,
     }),
@@ -93,7 +94,7 @@ export function createEffects(scene) {
         has = true;
       }
       const fade = i / (N - 1);
-      const w = s.live ? 0.2 + fade * 0.26 : 0;
+      const w = s.live ? 0.1 + fade * 0.05 : 0;
       const rx = s.hz || 1;
       const rz = -s.hx;
       const heights = [0.07, 0.015, -0.05, -0.05, 0.015, 0.07];
@@ -183,6 +184,11 @@ export function createEffects(scene) {
       head = (head + 1) % N;
       last = null;
       writeTrail();
+    },
+    snowing: false,
+    setSnowing(on) {
+      this.snowing = on;
+      snow.points.visible = on;
     },
     resetTrail() {
       for (const s of samples) s.live = false;
