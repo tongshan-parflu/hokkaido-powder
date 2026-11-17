@@ -6,7 +6,7 @@ import {
   slopeElevation,
   terrainHeight,
 } from './course.js';
-import { addHillForest, createBirchParts, createPineGeometry } from './trees.js';
+import { addHillForest, createBirchParts, createPineGeometry, setTreeSway } from './trees.js';
 import { puffTexture } from './materials.js';
 
 function std(color, roughness, metalness = 0, extras = {}) {
@@ -61,12 +61,12 @@ function yoteiGeometry(radius, height) {
   const stride = radial + 1;
   for (let iy = 0; iy <= rows; iy++) {
     const t = iy / rows;
-    const u = Math.min(t / 0.9, 1);
-    let r = t > 0.9 ? radius * 0.11 : radius * (1 - Math.pow(u, 0.92));
+    const u = Math.min(t / 0.86, 1);
+    let r = t > 0.86 ? radius * (0.2 * (1.0 - (t - 0.86) / 0.14) + 0.02) : radius * (1.0 - Math.pow(u, 0.88));
     const y = t * height;
     for (let ix = 0; ix <= radial; ix++) {
       const ang = (ix / radial) * Math.PI * 2;
-      const gullies = t > 0.42 && t < 0.9 ? Math.sin(ang * 14) * 0.045 * r : 0;
+      const gullies = t > 0.34 && t < 0.88 ? Math.sin(ang * 12.0) * 0.075 * r : 0;
       const rr = Math.max(0, r + gullies);
       positions.push(Math.cos(ang) * rr, y, Math.sin(ang) * rr);
       if (t < 0.4) color.copy(forest);
@@ -80,7 +80,7 @@ function yoteiGeometry(radius, height) {
     }
   }
   const topCenter = positions.length / 3;
-  positions.push(0, height * 0.985, 0);
+  positions.push(0, height * 0.96, 0);
   colors.push(snow.r, snow.g, snow.b);
   for (let iy = 0; iy < rows; iy++) {
     for (let ix = 0; ix < radial; ix++) {
@@ -280,6 +280,16 @@ export function createWorld(scene, course) {
   const { trunkGeo, trunkMat, crown, crownMat } = createBirchParts();
   const pineGeo = createPineGeometry();
   const pineMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.78 });
+  pineMat.onBeforeCompile = (shader) => {
+    shader.uniforms.uSway = { value: 0 };
+    pineMat.userData.sway = shader.uniforms.uSway;
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nuniform float uSway;')
+      .replace(
+        '#include <begin_vertex>',
+        '#include <begin_vertex>\ntransformed.x += sin(uSway + position.y) * position.y * 0.01;',
+      );
+  };
   const dummy = new THREE.Object3D();
   const birches = course.trees.filter((t) => t.kind === 'birch');
   const pines = course.trees.filter((t) => t.kind === 'pine');
@@ -439,6 +449,29 @@ export function createWorld(scene, course) {
     board.rotation.y = Math.PI + (dx > 0 ? -0.4 : 0.4);
     scene.add(post, board);
   }
+  const markerGeo = new THREE.CylinderGeometry(0.055, 0.07, 2.4, 6);
+  const markerMat = new THREE.MeshStandardMaterial({ map: stripeTexture(), roughness: 0.42 });
+  const markers = new THREE.InstancedMesh(markerGeo, markerMat, 12);
+  const marker = new THREE.Object3D();
+  let markerCount = 0;
+  for (const z of [40, 62, 88, 118]) {
+    for (const dx of [-8, 8]) {
+      const x = courseCenter(z) + dx;
+      marker.position.set(x, terrainHeight(x, z) + 1.2, z);
+      marker.updateMatrix();
+      markers.setMatrixAt(markerCount, marker.matrix);
+      markerCount += 1;
+    }
+  }
+  markers.count = markerCount;
+  markers.instanceMatrix.needsUpdate = true;
+  markers.castShadow = true;
+  scene.add(markers);
+  const greeter = makeFox();
+  const foxX = courseCenter(70) - 11;
+  greeter.position.set(foxX, terrainHeight(foxX, 70), 70);
+  greeter.rotation.y = 0.8;
+  scene.add(greeter);
 
   const nightLights = [...lodge.lights, ...gondola.lamps, ...chair.lamps, hutLamp];
   const windows = lodge.windows;
@@ -448,6 +481,8 @@ export function createWorld(scene, course) {
     followSky() {},
     update(dt) {
       time += dt;
+      setTreeSway(time);
+      if (pineMat.userData.sway) pineMat.userData.sway.value = time;
       for (const view of gateViews) {
         for (const flag of view.flags) {
           flag.rotation.y = Math.sin(time * 2.2 + flag.userData.phase) * 0.25;
@@ -475,9 +510,9 @@ export function createWorld(scene, course) {
       });
       gondola.update(time);
       chair.update(time);
-      const hubX = 80;
-      const hubZ = 480;
-      const hubY = terrainHeight(hubX, hubZ) + 70;
+      const hubX = -20;
+      const hubZ = 160;
+      const hubY = terrainHeight(0, 40) + 36;
       cranes.forEach((bird) => {
         const a = time * 0.18 + bird.userData.phase;
         const r = bird.userData.radius;

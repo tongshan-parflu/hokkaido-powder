@@ -22,13 +22,17 @@ const GradeShader = {
     varying vec2 vUv;
     void main() {
       vec3 col = texture2D(tDiffuse, vUv).rgb;
-      col = pow(max(col, 0.0), vec3(0.96));
-      vec3 warm = col * vec3(1.06, 0.98, 0.92);
-      vec3 cool = col * vec3(0.75, 0.84, 1.08);
+      col = pow(max(col, 0.0), vec3(0.94));
+      float luma = dot(col, vec3(0.299, 0.587, 0.114));
+      vec3 warm = mix(col * vec3(0.86, 0.93, 1.08), col * vec3(1.08, 1.0, 0.9), smoothstep(0.25, 0.8, luma));
+      vec3 cool = col * vec3(0.72, 0.82, 1.12);
       col = mix(warm, cool, uNight);
+      vec2 sunUv = vec2(0.22, 0.78);
+      float shaft = pow(max(0.0, 1.0 - length((vUv - sunUv) * vec2(0.85, 1.35))), 2.4);
+      col += vec3(1.0, 0.82, 0.58) * shaft * 0.22 * (1.0 - uNight);
       float d = length(vUv - 0.5);
-      float vig = smoothstep(0.92, 0.38, d);
-      col *= mix(0.72, 1.0, vig);
+      float vig = smoothstep(0.95, 0.42, d);
+      col *= mix(0.78, 1.0, vig);
       gl_FragColor = vec4(col, 1.0);
     }
   `,
@@ -70,14 +74,18 @@ function skyMaterial() {
       void main() {
         vec3 dir = normalize(vDir);
         float h = dir.y;
-        vec3 dayHorizon = vec3(0.78, 0.86, 0.95);
-        vec3 dayZenith = vec3(0.12, 0.34, 0.78);
+        vec3 dayHorizon = vec3(0.96, 0.78, 0.62);
+        vec3 dayMid = vec3(0.55, 0.74, 0.92);
+        vec3 dayZenith = vec3(0.16, 0.40, 0.82);
         vec3 nightHorizon = vec3(0.10, 0.13, 0.22);
         vec3 nightZenith = vec3(0.02, 0.03, 0.07);
         vec3 horizon = mix(dayHorizon, nightHorizon, uNight);
         vec3 zenith = mix(dayZenith, nightZenith, uNight);
-        float elev = smoothstep(0.0, 0.42, h);
-        vec3 col = mix(horizon, zenith, elev);
+        float elev = smoothstep(0.0, 0.22, h);
+        float high = smoothstep(0.12, 0.72, h);
+        vec3 mid = mix(dayMid, vec3(0.07, 0.11, 0.22), uNight);
+        vec3 col = mix(horizon, mid, elev);
+        col = mix(col, zenith, high);
         vec2 skyUv = dir.xz / max(0.15, dir.y + 0.35);
         float clouds = fbm(skyUv * 1.6);
         float wispy = smoothstep(0.48, 0.78, clouds) * smoothstep(0.55, 0.05, h);
@@ -177,7 +185,7 @@ export function createPipeline(scene, camera) {
     ssao.enabled = high;
     bloom.enabled = !low;
     grade.enabled = !low;
-    bloom.strength = night ? 0.28 : 0.15;
+    bloom.strength = night ? 0.28 : 0.22;
     resize(window.innerWidth, window.innerHeight);
   }
 
@@ -211,7 +219,7 @@ export function createPipeline(scene, camera) {
     scene.fog.density = on ? 0.0009 : 0.00028;
     scene.environmentIntensity = on ? 0.12 : 0.45;
     renderer.toneMappingExposure = on ? 0.62 : 0.92;
-    bloom.strength = on ? 0.32 : 0.15;
+    bloom.strength = on ? 0.28 : 0.22;
     document.body.dataset.night = on ? '1' : '0';
   }
 

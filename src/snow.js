@@ -97,7 +97,7 @@ export function createEffects(scene) {
       const w = s.live ? 0.1 + fade * 0.05 : 0;
       const rx = s.hz || 1;
       const rz = -s.hx;
-      const heights = [0.07, 0.015, -0.05, -0.05, 0.015, 0.07];
+      const heights = [0.09, 0.02, -0.1, -0.1, 0.02, 0.09];
       const widths = [-1.15, -0.58, -0.18, 0.18, 0.58, 1.15];
       for (let k = 0; k < cols; k++) {
         const o = (i * cols + k) * 3;

@@ -61,10 +61,11 @@ canvas {
 }
 
 .stat, .counters, #combo {
-  background: var(--paper);
-  backdrop-filter: blur(12px);
-  border-radius: 16px;
-  box-shadow: 0 10px 30px rgba(40, 50, 70, 0.1);
+  background: rgba(255, 250, 244, 0.55);
+  backdrop-filter: blur(16px);
+  border-radius: 12px;
+  box-shadow: none;
+  border: 1px solid rgba(255, 255, 255, 0.45);
 }
 
 .stat {
@@ -197,7 +198,11 @@ h1, h2 {
   line-height: 1.08;
 }
 
-h1 { font-size: clamp(40px, 5.6vw, 68px); }
+h1 {
+  font-size: clamp(40px, 5.4vw, 64px);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
 h2 { font-size: 40px; margin-bottom: 6px; }
 h2[data-kind="finish"] { color: #2c6b4e; }
 h2[data-kind="crash"] { color: var(--red); }

@@ -26,8 +26,9 @@ function add(parent, geo, material, x, y, z, rx = 0, ry = 0, rz = 0) {
 }
 
 function buildSkier() {
-  const jacket = std(0x1c3f66, 0.62);
-  const accent = std(0xc4483c, 0.55);
+  const jacket = std(0xd24a3c, 0.58);
+  const scarfMat = std(0xf3efe6, 0.7);
+  const accent = std(0x1d3f73, 0.55);
   const pants = std(0x1a1e28, 0.7);
   const boot = std(0x2a241c, 0.45);
   const skiMat = std(0x111216, 0.32, 0.25);
@@ -73,6 +74,11 @@ function buildSkier() {
 
   add(upper, new RoundedBoxGeometry(0.48, 0.5, 0.26, 3, 0.04), jacket, 0, 0.28, 0.02);
   add(upper, new RoundedBoxGeometry(0.22, 0.16, 0.08, 2, 0.02), accent, 0, 0.42, 0.14);
+  const scarf = new THREE.Group();
+  scarf.position.set(0, 0.5, -0.08);
+  upper.add(scarf);
+  add(scarf, new THREE.BoxGeometry(0.16, 0.55, 0.04), scarfMat, 0.05, -0.22, -0.04, 0.4, 0.2, 0.15);
+  add(scarf, new THREE.BoxGeometry(0.14, 0.42, 0.035), scarfMat, -0.06, -0.16, -0.02, 0.25, -0.3, -0.2);
   add(upper, new RoundedBoxGeometry(0.28, 0.32, 0.12, 2, 0.02), dark, 0, 0.3, -0.12);
 
   const armL = new THREE.Group();
@@ -105,7 +111,8 @@ function buildSkier() {
   );
   shadow.frustumCulled = false;
 
-  return { root, spin, bank, hips, upper, armL, armR, shinL, shinR, skiL, skiR, poleL, poleR, shadow };
+  root.scale.setScalar(1.22);
+  return { root, spin, bank, hips, upper, armL, armR, shinL, shinR, skiL, skiR, poleL, poleR, scarf, shadow };
 }
 
 export function createSkier(scene) {
@@ -164,6 +171,8 @@ export function createSkier(scene) {
     mesh.skiR.rotation.z = steerSm * 0.18;
     mesh.poleL.rotation.x = 0.35 + tuckSm * 0.45 + Math.sin(time * 2.2) * 0.05;
     mesh.poleR.rotation.x = 0.35 + tuckSm * 0.45 + Math.sin(time * 2.2 + 1) * 0.05;
+    mesh.scarf.rotation.y = Math.sin(time * 3.2) * 0.35 + steerSm * 0.2;
+    mesh.scarf.rotation.x = 0.15 + Math.sin(time * 4.1) * 0.12;
   }
 
   return {

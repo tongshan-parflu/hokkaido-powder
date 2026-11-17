@@ -3,6 +3,25 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { createBarkTextures } from './materials.js';
 import { courseCenter, terrainHeight } from './course.js';
 
+const swayTime = { value: 0 };
+
+function attachSway(mat) {
+  mat.onBeforeCompile = (shader) => {
+    shader.uniforms.uSway = swayTime;
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nuniform float uSway;')
+      .replace(
+        '#include <begin_vertex>',
+        `#include <begin_vertex>
+       transformed.x += sin(uSway + position.y * 0.35) * position.y * 0.012;`,
+      );
+  };
+}
+
+export function setTreeSway(time) {
+  swayTime.value = time;
+}
+
 function paint(geo, hex) {
   const color = new THREE.Color(hex);
   const count = geo.attributes.position.count;
@@ -60,6 +79,7 @@ export function createBirchParts() {
     roughness: 0.72,
     metalness: 0.0,
   });
+  attachSway(crownMat);
   return { trunkGeo, trunkMat, crown, crownMat };
 }
 
@@ -72,7 +92,12 @@ export function createPineGeometry() {
     { r: 0.85, h: 1.4, y: 3.15, c: 0x1a3c30 },
   ];
   for (const layer of layers) {
-    const cone = new THREE.ConeGeometry(layer.r, layer.h, 8);
+    const cone = new THREE.ConeGeometry(layer.r, layer.h, 9);
+    const skirt = cone.attributes.position;
+    for (let vi = 0; vi < skirt.count; vi++) {
+      const edge = Math.hypot(skirt.getX(vi), skirt.getZ(vi)) / layer.r;
+      if (edge > 0.42) skirt.setY(vi, skirt.getY(vi) - layer.h * 0.22 * (edge - 0.42));
+    }
     cone.translate(0, layer.y + layer.h / 2, 0);
     paint(cone, layer.c);
     parts.push(cone);
