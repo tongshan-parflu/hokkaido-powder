@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="description" content="在北海道粉雪中滑过白桦林，把羊蹄山留在身后。" />
+    <title>北海道粉雪滑行</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🎿%3C/text%3E%3C/svg%3E" />
+    <style>
+      html, body { margin: 0; height: 100%; background: linear-gradient(#7f91ab, #f0c6a8 46%, #e4edf4); }
+      body { font-family: "Noto Sans SC", "WenQuanYi Micro Hei", "Droid Sans Fallback", sans-serif; color: #1b2430; }
+    </style>
+  </head>
+  <body>
+    <div id="hud" hidden>
+      <div class="stats">
+        <div class="stat">
+          <span>速度</span>
+          <div class="stat-value"><strong id="speed">0</strong><small>km/h</small></div>
+        </div>
+        <div class="stat">
+          <span>距离</span>
+          <div class="stat-value"><strong id="distance">0</strong><small>m</small></div>
+        </div>
+        <div class="stat">
+          <span>得分</span>
+          <div class="stat-value"><strong id="score">0</strong></div>
+        </div>
+        <div class="stat">
+          <span>时间</span>
+          <div class="stat-value"><strong id="time">0:00</strong></div>
+        </div>
+      </div>
+      <div class="side">
+        <div class="counters">
+          <span>旗门 <b id="gates">0/16</b></span>
+          <span>雪花 <b id="flakes">0</b></span>
+          <span>北狐 <b id="foxes">0</b></span>
+        </div>
+        <div id="combo" hidden>连击 ×<b id="combo-n">2</b></div>
+      </div>
+    </div>
+
+    <p id="hint" hidden>A / D 转向 · W 俯身 · S 刹车 · 空格 跳跃</p>
+
+    <section id="screen-start" class="screen">
+      <div class="panel">
+        <div class="panel-top">
+          <div>
+            <p class="eyebrow">二世谷 · 富良野</p>
+            <h1>北海道粉雪滑行</h1>
+            <p class="lede">穿过白桦林，把羊蹄山留在身后。</p>
+          </div>
+          <div class="seal" aria-hidden="true">粉雪</div>
+        </div>
+        <div class="actions">
+          <button id="btn-start" class="primary" type="button">开始滑行</button>
+          <p id="best-start" class="best" hidden>最高分 <b id="best-start-n">0</b></p>
+        </div>
+        <ul class="controls">
+          <li><span class="keys"><kbd>A</kbd><kbd>←</kbd></span>左转</li>
+          <li><span class="keys"><kbd>D</kbd><kbd>→</kbd></span>右转</li>
+          <li><span class="keys"><kbd>W</kbd><kbd>↑</kbd></span>俯身加速</li>
+          <li><span class="keys"><kbd>S</kbd><kbd>↓</kbd></span>刹车</li>
+          <li><span class="keys"><kbd>空格</kbd></span>跳跃</li>
+        </ul>
+        <p class="footnote">穿过旗门得分 · 收集雪花与北狐 · 避开树木和岩石</p>
+        <p id="gl-error" class="error" hidden></p>
+      </div>
+    </section>
+
+    <section id="screen-end" class="screen center" hidden>
+      <div class="card">
+        <p class="eyebrow">羊蹄下行</p>
+        <h2 id="end-title">摔倒了</h2>
+        <p id="end-reason"></p>
+        <div class="total"><span>总分</span><strong id="end-total">0</strong></div>
+        <p id="end-perfect" class="perfect" hidden></p>
+        <dl class="results">
+          <div><dt>收集得分</dt><dd id="end-score">0</dd></div>
+          <div><dt>距离奖励</dt><dd id="end-distance">0 米</dd></div>
+          <div><dt>旗门</dt><dd id="end-gates">0/16</dd></div>
+          <div><dt>雪花</dt><dd id="end-flakes">0</dd></div>
+          <div><dt>北狐</dt><dd id="end-foxes">0</dd></div>
+          <div><dt>用时</dt><dd id="end-time">0:00.0</dd></div>
+        </dl>
+        <p class="best">最高分 <b id="end-best">0</b></p>
+        <button id="btn-again" class="primary" type="button">再滑一次</button>
+        <p class="footnote">Enter 或 R 重新出发</p>
+      </div>
+    </section>
+
+    <div id="popups"></div>
+    <div id="vignette"></div>
+
+    <div id="touch">
+      <div class="touch-cluster">
+        <button type="button" data-hold="left">左转</button>
+        <button type="button" data-hold="right">右转</button>
+      </div>
+      <div class="touch-cluster">
+        <button type="button" data-hold="down">刹车</button>
+        <button type="button" data-hold="up">俯身</button>
+        <button id="btn-jump" class="jump" type="button">跳跃</button>
+      </div>
+    </div>
+
+    <noscript>需要启用 JavaScript 才能在粉雪里滑行。</noscript>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
