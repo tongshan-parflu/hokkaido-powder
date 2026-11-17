@@ -245,7 +245,39 @@ h2[data-kind="crash"] { color: var(--red); }
 }
 
 .primary:hover { background: #a93730; }
-.primary:focus-visible { outline: 3px solid #f0c2a0; outline-offset: 3px; }
+.primary:focus-visible, .ghost:focus-visible { outline: 2px solid #c9a27a; outline-offset: 3px; }
+.ghost {
+  appearance: none;
+  border: 1px solid rgba(27, 36, 48, 0.18);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  letter-spacing: 0.12em;
+  padding: 10px 16px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.ghost:hover { background: rgba(255, 255, 255, 0.55); }
+body[data-night="1"] {
+  --ink: #f4efe8;
+  --muted: #c9d0da;
+  --paper: rgba(16, 22, 32, 0.72);
+}
+body[data-night="1"] .panel,
+body[data-night="1"] .card,
+body[data-night="1"] .stat,
+body[data-night="1"] .counters,
+body[data-night="1"] #combo,
+body[data-night="1"] #hint {
+  color: #f4efe8;
+  background: rgba(12, 16, 24, 0.72);
+}
+body[data-night="1"] h1,
+body[data-night="1"] h2,
+body[data-night="1"] .stat strong,
+body[data-night="1"] .total strong { color: #f7f1e8; }
+body[data-night="1"] .ghost { color: #f4efe8; border-color: rgba(255,255,255,0.2); }
 
 .best { margin: 0; color: var(--muted); font-size: 14px; }
 .best b { color: var(--ink); font-variant-numeric: tabular-nums; }

@@ -1,7 +1,7 @@
 /** Pure course data: terrain, layout, gates, and pickups. No rendering. */
 
 export const COURSE_LENGTH = 2100;
-export const HALF_WIDTH = 100;
+export const HALF_WIDTH = 150;
 export const START_Z = 28;
 export const FINISH_Z = COURSE_LENGTH - 80;
 
@@ -36,7 +36,7 @@ export function slopeElevation(z) {
   const drop =
     0.125 * zc +
     0.11 * (COURSE_LENGTH / Math.PI) * (1 - Math.cos((Math.PI * zc) / COURSE_LENGTH));
-  return 280 - drop;
+  return 430 - drop;
 }
 
 /** Center of the fall line. The trough and gates follow this curve. */
@@ -44,16 +44,37 @@ export function courseCenter(z) {
   return Math.sin(z * 0.0036) * 18 + Math.sin(z * 0.00155 + 0.7) * 7;
 }
 
-export function terrainHeight(x, z) {
-  let y = slopeElevation(z);
-  y += Math.sin(z * 0.021) * 1.15;
-  y += Math.sin(z * 0.008 + 0.6) * 1.5;
-  y += Math.sin(z * 0.033) * 0.4;
+function smooth01(t) {
+  const x = clamp(t, 0, 1);
+  return x * x * (3 - 2 * x);
+}
 
-  const adx = Math.abs(x - courseCenter(z));
-  if (adx > 36) {
-    const k = adx - 36;
-    y += k * k * 0.0028;
+export function terrainHeight(x, z) {
+  const cx = courseCenter(z);
+  const dx = x - cx;
+  const adx = Math.abs(dx);
+  let y = slopeElevation(z);
+  y += Math.sin(z * 0.016) * 2.6;
+  y += Math.sin(z * 0.0065 + 0.8) * 3.4;
+  y += Math.sin(z * 0.031 + dx * 0.01) * 0.7;
+
+  if (z > 820 && z < 1360) {
+    const u = (z - 820) / 540;
+    const bowl = Math.sin(u * Math.PI);
+    const radial = Math.exp(-(dx * dx) / (62 * 62));
+    y -= bowl * radial * 7.5;
+  }
+
+  const shoulder = smooth01((adx - 16) / 78);
+  y += shoulder * shoulder * (26 + 10 * Math.sin(z * 0.004 + 0.4));
+  const side = dx > 0 ? 1 : -1;
+  const ridgeA = Math.exp(-((dx - side * 62) ** 2) / (24 * 24) - ((z - 480) ** 2) / (220 * 220));
+  const ridgeB = Math.exp(-((dx + 70) ** 2) / (26 * 26) - ((z - 1540) ** 2) / (260 * 260));
+  y += ridgeA * 14 + ridgeB * 12;
+
+  if (adx > HALF_WIDTH - 18) {
+    const k = (adx - (HALF_WIDTH - 18)) / 18;
+    y += k * k * 10;
   }
   return y;
 }
@@ -135,20 +156,23 @@ export function generateCourse() {
     obstacles.push({ x, z, r, kind: 'tree' });
   }
 
-  for (let z = 60; z < COURSE_LENGTH - 24; z += 15) {
+  for (let z = 70; z < COURSE_LENGTH - 24; z += 13) {
+    const bowl = z > 880 && z < 1320;
+    if (bowl && rand() > 0.42) continue;
     const cx = courseCenter(z + 4);
     for (const side of [-1, 1]) {
-      const cluster = 2 + Math.floor(rand() * 3);
+      const cluster = bowl ? 1 + Math.floor(rand() * 2) : 2 + Math.floor(rand() * 3);
       for (let k = 0; k < cluster; k++) {
-        const spread = 16.8 + rand() * 30;
-        const zz = z + rand() * 14;
+        const spread = (bowl ? 34 : 17.4) + rand() * (bowl ? 40 : 32);
+        const zz = z + rand() * 12;
         const xx = cx + side * spread;
-        const birchZone = zz < 560;
-        let kind;
-        if (birchZone && side < 0) kind = rand() < 0.86 ? 'birch' : 'pine';
-        else if (birchZone && side > 0) kind = rand() < 0.38 ? 'birch' : 'pine';
-        else kind = rand() < 0.25 ? 'birch' : 'pine';
-        const scale = 0.82 + rand() * 0.45;
+        const birchRun = zz < 860;
+        const coniferRun = zz > 1280;
+        let kind = 'pine';
+        if (birchRun) kind = rand() < (side < 0 ? 0.84 : 0.62) ? 'birch' : 'pine';
+        else if (coniferRun) kind = rand() < 0.16 ? 'birch' : 'pine';
+        else kind = rand() < 0.35 ? 'birch' : 'pine';
+        const scale = 0.85 + rand() * 0.5;
         pushTree(xx, zz, kind, scale);
       }
     }

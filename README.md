@@ -1,6 +1,6 @@
 # 北海道粉雪滑行
 
-A browser skiing game on a long Hokkaido powder slope: birch groves, snow-covered pines, and a Mt. Yotei-style cone in the sunset fog. Built with Vite and Three.js. No account, no build tools required beyond Node for the dev server.
+A browser ski game on a Niseko-style mountain: birch runs, snow-loaded pines, and Mt. Yotei across the valley. Vite and Three.js, with a PBR snow surface, soft shadows, bloom, and a night-skiing mode.
 
 ## Play
 
@@ -15,14 +15,13 @@ Open [http://127.0.0.1:4731](http://127.0.0.1:4731).
 | --- | --- |
 | A / ← | Carve left |
 | D / → | Carve right |
-| W / ↑ | Tuck (accelerate) |
+| W / ↑ | Tuck |
 | S / ↓ | Brake |
 | Space | Jump |
-| Enter | Start, or ski again after a run |
+| N | Day / night (ナイター) |
+| Enter | Start, or ski again |
 
-Pass the flag gates, pick up snowflakes and Ezo foxes (北狐), and stay off the trees and rocks. The run is about two kilometers. Your best total is kept in this browser.
-
-On a phone, on-screen buttons appear once the run starts.
+Pass the red-and-white gates, collect snowflakes and Ezo foxes, and stay off the trees and rocks. The course is about two kilometers, from the birch ridge through an open bowl to the valley. 画质 switches 极致 / 细腻 / 流畅. 极致 adds SSAO and a larger shadow map.
 
 ## Static build
 
@@ -31,17 +30,23 @@ npm run build
 npm run preview
 ```
 
-`dist/` is a static site. Serve that folder with any static host. Opening `index.html` as a `file://` URL will not work, because the game is an ES module.
+`dist/` is the static site. It has to be served over HTTP. Opening `index.html` as a `file://` URL will not work.
+
+## Assets
+
+Snow textures and the sky HDRI are CC0 from Poly Haven (`snow_02`, `kloofendal_48d_partly_cloudy_puresky`), stored in `public/assets/`.
 
 ## Files
 
-- `index.html` — page, Chinese HUD, start and result screens
-- `src/main.js` — loop, camera, input, scoring
-- `src/course.js` — slope, gates, trees, pickups
-- `src/physics.js` — carving, gravity, jumps
-- `src/terrain.js` — snow mesh
-- `src/world.js` — trees, volcano, foxes, gates
-- `src/skier.js` — low-poly skier
-- `src/snow.js` — snowfall, spray, tracks
-- `src/style.css` — interface
-- `scripts/sim.mjs` — headless run of the same physics (`npm run sim`)
+- `index.html`, `src/style.css` — Chinese UI
+- `src/main.js` — loop, camera, scoring
+- `src/course.js` — mountain, gates, trees, pickups
+- `src/physics.js` — carving, gravity, jump
+- `src/render.js` — ACES, shadows, bloom, SSAO, night
+- `src/materials.js` — snow and birch bark
+- `src/terrain.js` — snowfield
+- `src/trees.js` — birch and conifer meshes
+- `src/world.js` — Yotei, sea, lifts, lodge, wildlife
+- `src/skier.js` — skier and poses
+- `src/snow.js` — snowfall, powder, tracks
+- `scripts/sim.mjs` — headless physics check (`npm run sim`)

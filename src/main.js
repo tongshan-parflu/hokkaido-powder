@@ -12,6 +12,7 @@ import {
   terrainHeight,
 } from './course.js';
 import { createEffects } from './snow.js';
+import { createPipeline } from './render.js';
 import { createSkier } from './skier.js';
 import { createTerrain } from './terrain.js';
 import { createWorld } from './world.js';
@@ -57,42 +58,18 @@ const env = { height: terrainHeight, collide };
 const combo = { value: 0 };
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0xd5e0ea);
-scene.fog = new THREE.FogExp2(0xd7e2ee, 0.00165);
-scene.add(new THREE.AmbientLight(0xd5e2f2, 0.34));
-scene.add(new THREE.HemisphereLight(0xffe2c6, 0x8ea6c2, 0.46));
-const sun = new THREE.DirectionalLight(0xffc999, 1.15);
-sun.position.set(-0.62, 0.38, 0.48);
-scene.add(sun);
-
-const camera = new THREE.PerspectiveCamera(58, 1, 0.18, 5200);
+const camera = new THREE.PerspectiveCamera(52, 1, 0.25, 8000);
 const desiredPos = new THREE.Vector3();
 const desiredLook = new THREE.Vector3();
 const camPos = new THREE.Vector3();
 const lookAt = new THREE.Vector3();
 
-let renderer;
-try {
-  renderer = new THREE.WebGLRenderer({
-    antialias: true,
-    alpha: false,
-    powerPreference: 'high-performance',
-    failIfMajorPerformanceCaveat: false,
-  });
-} catch (err) {
-  fail(err && err.message ? err.message : '无法创建图形');
-  throw err;
-}
-
+const pipeline = createPipeline(scene, camera);
+const renderer = pipeline.renderer;
 if (!renderer.getContext()) {
   fail('当前浏览器没有可用的 WebGL');
   throw new Error('WebGL unavailable');
 }
-
-renderer.outputColorSpace = THREE.SRGBColorSpace;
-renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.6));
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setClearColor(0xd5e0ea, 1);
 renderer.domElement.tabIndex = 0;
 renderer.domElement.setAttribute('role', 'application');
 renderer.domElement.setAttribute('aria-label', '北海道粉雪滑行');
@@ -149,8 +126,7 @@ function showBest() {
 function resize() {
   camera.aspect = window.innerWidth / Math.max(1, window.innerHeight);
   camera.updateProjectionMatrix();
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.6));
-  renderer.setSize(window.innerWidth, window.innerHeight);
+  pipeline.resize(window.innerWidth, window.innerHeight);
 }
 
 function formatClock(t) {
@@ -218,8 +194,8 @@ function desiredCamera(drift, extraUp) {
   const aheadZ = Math.cos(rider.heading);
   const rx = Math.cos(rider.heading);
   const rz = -Math.sin(rider.heading);
-  const back = 10.4 + Math.min(rider.speed, 28) * 0.04;
-  const up = 4.35 + extraUp + Math.min(rider.speed, 28) * 0.018;
+  const back = 12.2 + Math.min(rider.speed, 28) * 0.05;
+  const up = 5.1 + extraUp + Math.min(rider.speed, 28) * 0.02;
   desiredPos.set(
     rider.x - aheadX * back + rx * drift,
     rider.y + up,
@@ -227,8 +203,8 @@ function desiredCamera(drift, extraUp) {
   );
   const floorY = terrainHeight(desiredPos.x, desiredPos.z) + 1.45;
   if (desiredPos.y < floorY) desiredPos.y = floorY;
-  const look = 11 + Math.min(rider.speed, 30) * 0.22;
-  desiredLook.set(rider.x + aheadX * look, rider.y + 1.55, rider.z + aheadZ * look);
+  const look = 14 + Math.min(rider.speed, 30) * 0.2;
+  desiredLook.set(rider.x + aheadX * look, rider.y + 2.4, rider.z + aheadZ * look);
 }
 
 function updateCamera(dt, drift, extraUp) {
@@ -271,16 +247,10 @@ function pushTrack() {
   const rider = skier.rider;
   const hx = Math.sin(rider.heading);
   const hz = Math.cos(rider.heading);
-  const rx = Math.cos(rider.heading);
-  const rz = -Math.sin(rider.heading);
   const bx = rider.x - hx * 0.9;
   const bz = rider.z - hz * 0.9;
   const by = terrainHeight(bx, bz) + 0.08;
-  const w = 0.36;
-  effects.pushTrail(
-    { x: bx - rx * w, y: by, z: bz - rz * w },
-    { x: bx + rx * w, y: by, z: bz + rz * w },
-  );
+  effects.pushTrail(bx, by, bz, hx, hz);
   trailOpen = true;
 }
 
@@ -424,8 +394,9 @@ function step(dt) {
 }
 
 function draw() {
-  world.followSky(camera);
-  renderer.render(scene, camera);
+  const rider = skier.rider;
+  pipeline.update(rider);
+  pipeline.render();
 }
 
 window.addEventListener('resize', resize);
@@ -442,6 +413,14 @@ window.addEventListener('keydown', (e) => {
   }
   if ((e.code === 'KeyR' || e.code === 'Enter') && mode === 'end') {
     beginRun();
+    return;
+  }
+  if (e.code === 'KeyN' && !e.repeat) {
+    const next = document.body.dataset.night !== '1';
+    pipeline.setNight(next);
+    world.setNight(next);
+    const nightBtn = document.getElementById('btn-night');
+    if (nightBtn) nightBtn.textContent = next ? '白天' : '夜间';
     return;
   }
   if (e.code === 'Space' && mode === 'play' && !e.repeat) keys.jumpQueued = true;
@@ -479,6 +458,25 @@ window.addEventListener('blur', () => {
   keys.down = false;
 });
 
+const qualityNames = { high: '极致', medium: '细腻', low: '流畅' };
+let qualityLevel = 'medium';
+function cycleQuality() {
+  qualityLevel = qualityLevel === 'medium' ? 'high' : qualityLevel === 'high' ? 'low' : 'medium';
+  pipeline.setQuality(qualityLevel);
+  const el = document.getElementById('btn-quality');
+  if (el) el.textContent = `画质 · ${qualityNames[qualityLevel]}`;
+}
+document.getElementById('btn-quality')?.addEventListener('click', (e) => {
+  e.stopPropagation();
+  cycleQuality();
+});
+document.getElementById('btn-night')?.addEventListener('click', (e) => {
+  e.stopPropagation();
+  const next = document.body.dataset.night !== '1';
+  pipeline.setNight(next);
+  world.setNight(next);
+  e.currentTarget.textContent = next ? '白天' : '夜间';
+});
 document.getElementById('btn-start').addEventListener('click', () => beginRun());
 document.getElementById('btn-again').addEventListener('click', () => {
   if (mode === 'end') beginRun();
@@ -515,8 +513,7 @@ prevX = skier.rider.x;
 prevZ = skier.rider.z;
 document.body.dataset.mode = 'menu';
 updateCamera(0.016, 0, 0.85);
-world.followSky(camera);
-renderer.render(scene, camera);
+draw();
 
 let last = performance.now();
 let accumulator = 0;
@@ -526,7 +523,7 @@ function frame(now) {
   accumulator += frameDt;
   const stepDt = 1 / 60;
   let steps = 0;
-  while (accumulator >= stepDt && steps < 8) {
+  while (accumulator >= stepDt && steps < 15) {
     step(stepDt);
     accumulator -= stepDt;
     steps += 1;
