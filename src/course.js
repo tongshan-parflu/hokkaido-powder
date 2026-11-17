@@ -66,8 +66,9 @@ export function terrainHeight(x, z) {
   }
 
   const offPiste = smooth01((adx - 9) / 12);
-  y += Math.sin(x * 0.31 + z * 0.12) * (0.05 + offPiste * 0.22);
-  y += Math.sin(x * 0.87 + z * 0.63) * offPiste * 0.05;
+  y += Math.sin(x * 0.31 + z * 0.12) * (0.04 + offPiste * 0.16);
+  const bank = Math.exp(-((adx - 13) * (adx - 13)) / 16);
+  y += bank * 1.35;
   const shoulder = smooth01((adx - 28) / 80);
   y += shoulder * shoulder * 12;
 
@@ -164,10 +165,9 @@ export function generateCourse() {
     }
   }
   for (let z = 36; z < 980; z += 16) {
-    grove(z, -1, rand() < 0.8 ? 'birch' : 'pine', 5, 18, 26);
-    grove(z, 1, rand() < 0.45 ? 'birch' : 'pine', 4, 18, 30);
-    if (rand() > 0.35) grove(z + 4, -1, 'birch', 4, 28, 46);
-    if (rand() > 0.45) grove(z + 7, 1, 'pine', 3, 30, 48);
+    grove(z, -1, 'pine', 6, 17, 28);
+    grove(z, 1, 'pine', 5, 17, 30);
+    if (rand() > 0.55) grove(z + 5, -1, 'birch', 2, 30, 46);
   }
   for (let z = 980; z < COURSE_LENGTH - 40; z += 20) {
     if (z > 880 && z < 1320 && rand() > 0.55) continue;

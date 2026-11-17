@@ -40,7 +40,7 @@ export function createEffects(scene) {
   const flakeOffset = new THREE.Vector3();
 
   const sprayCount = 360;
-  const spray = makePoints(sprayCount, 1.35, true, 0.62);
+  const spray = makePoints(sprayCount, 0.62, true, 0.8);
   scene.add(spray.points);
   const pool = [];
   for (let i = 0; i < sprayCount; i++) pool.push({ x: 0, y: -500, z: 0, vx: 0, vy: 0, vz: 0, life: 0 });
@@ -66,9 +66,9 @@ export function createEffects(scene) {
   const trail = new THREE.Mesh(
     trailGeo,
     new THREE.MeshBasicMaterial({
-      color: 0xb7c6da,
+      color: 0xe7eef6,
       transparent: true,
-      opacity: 0.4,
+      opacity: 0.32,
       depthWrite: false,
       side: THREE.DoubleSide,
     }),
@@ -150,7 +150,7 @@ export function createEffects(scene) {
       for (let i = 0; i < n; i++) {
         const p = pool[cursor];
         cursor = (cursor + 1) % pool.length;
-        p.life = 0.7 + Math.random() * 0.55;
+        p.life = 0.95 + Math.random() * 0.7;
         p.x = x + (Math.random() - 0.5) * 0.3;
         p.y = y + Math.random() * 0.2;
         p.z = z + (Math.random() - 0.5) * 0.3;

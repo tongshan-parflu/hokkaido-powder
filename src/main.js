@@ -58,7 +58,7 @@ const env = { height: terrainHeight, collide };
 const combo = { value: 0 };
 
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(66, 1, 0.2, 9000);
+const camera = new THREE.PerspectiveCamera(42, 1, 0.15, 12000);
 const desiredPos = new THREE.Vector3();
 const desiredLook = new THREE.Vector3();
 const camPos = new THREE.Vector3();
@@ -194,12 +194,12 @@ function desiredCamera(drift, extraUp) {
   const aheadZ = Math.cos(rider.heading);
   const rx = Math.cos(rider.heading);
   const rz = -Math.sin(rider.heading);
-  const back = 6.6 + Math.min(rider.speed, 30) * 0.035;
-  const up = 2.35 + extraUp + Math.min(rider.speed, 30) * 0.012;
+  const back = 5.4 + Math.min(rider.speed, 30) * 0.02;
+  const up = 1.8 + extraUp + Math.min(rider.speed, 30) * 0.01;
   desiredPos.set(
-    rider.x - aheadX * back + rx * drift,
+    rider.x - aheadX * back + rx * (0.9 + drift),
     rider.y + up,
-    rider.z - aheadZ * back + rz * drift,
+    rider.z - aheadZ * back + rz * (0.9 + drift),
   );
   const floorY = terrainHeight(desiredPos.x, desiredPos.z) + 1.45;
   if (desiredPos.y < floorY) desiredPos.y = floorY;
@@ -221,7 +221,7 @@ function updateCamera(dt, drift, extraUp) {
   camera.position.copy(camPos);
   camera.lookAt(lookAt);
   const tuck = mode === 'play' && keys.up && !keys.down;
-  const targetFov = 66 + Math.min(skier.rider.speed, 32) * 0.4 + (tuck ? 8 : 0);
+  const targetFov = 42 + Math.min(skier.rider.speed, 32) * 0.22 + (tuck ? 5 : 0);
   if (Math.abs(camera.fov - targetFov) > 0.05) {
     camera.fov += (targetFov - camera.fov) * (1 - Math.exp(-4 * dt));
     camera.updateProjectionMatrix();
@@ -236,9 +236,9 @@ function sprayFrom(side, n) {
     rider.x + rx * side * 0.42,
     rider.y + 0.12,
     rider.z + rz * side * 0.42,
-    rx * side * 2.4 + rider.vx * 0.08,
-    1.5,
-    rz * side * 2.4 + rider.vz * 0.08,
+    rx * side * 3.1 + rider.vx * 0.05,
+    1.7,
+    rz * side * 3.1 + rider.vz * 0.05,
     n,
   );
 }
@@ -360,9 +360,14 @@ function step(dt) {
         score += ev.points;
         popup(ev.type === 'fox' ? `北狐 +${ev.points}` : `雪花 +${ev.points}`);
       }
-      const n = Math.max(1, Math.round(dt * 60 * 3));
-      if (events.spray === 'left' || events.spray === 'both') sprayFrom(-1, n);
-      if (events.spray === 'right' || events.spray === 'both') sprayFrom(1, n);
+      const n = Math.max(1, Math.round(dt * 60 * (rider.speed > 8 ? 3 : 1)));
+      if (rider.onGround && rider.speed > 7) {
+        sprayFrom(-1, n);
+        sprayFrom(1, n);
+      } else {
+        if (events.spray === 'left' || events.spray === 'both') sprayFrom(-1, n);
+        if (events.spray === 'right' || events.spray === 'both') sprayFrom(1, n);
+      }
       if (events.jumped) effects.burst(rider.x, rider.y, rider.z, 10);
       if (events.landed) effects.burst(rider.x, rider.y + 0.2, rider.z, 16);
       if (rider.onGround) pushTrack();

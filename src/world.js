@@ -47,9 +47,9 @@ function signTexture(text) {
   return tex;
 }
 
-function yoteiGeometry(radius, height) {
-  const radial = 80;
-  const rows = 36;
+function yoteiGeometry(radius, height, minT = 0.58) {
+  const radial = 96;
+  const rows = 40;
   const positions = [];
   const colors = [];
   const indices = [];
@@ -60,22 +60,23 @@ function yoteiGeometry(radius, height) {
   const color = new THREE.Color();
   const stride = radial + 1;
   for (let iy = 0; iy <= rows; iy++) {
-    const t = iy / rows;
-    const u = Math.min(t / 0.86, 1);
-    let r = t > 0.86 ? radius * (0.2 * (1.0 - (t - 0.86) / 0.14) + 0.02) : radius * (1.0 - Math.pow(u, 0.88));
+    const t = minT + (iy / rows) * (1 - minT);
+    const flank = Math.min(1, Math.max(0, (t - 0.38) / 0.56));
+    let r = radius * 0.48 * (1.0 - Math.pow(flank, 1.02));
+    if (t > 0.92) r = radius * 0.018 * (1.0 - (t - 0.92) / 0.08);
     const y = t * height;
     for (let ix = 0; ix <= radial; ix++) {
       const ang = (ix / radial) * Math.PI * 2;
-      const gullies = t > 0.34 && t < 0.88 ? Math.sin(ang * 12.0) * 0.075 * r : 0;
+      const gullies = t > 0.55 && t < 0.9 ? Math.sin(ang * 8.0) * 0.045 * r : 0;
       const rr = Math.max(0, r + gullies);
       positions.push(Math.cos(ang) * rr, y, Math.sin(ang) * rr);
-      if (t < 0.4) color.copy(forest);
-      else if (t < 0.52) color.copy(forest).lerp(rock, (t - 0.4) / 0.12);
+      if (t < 0.52) color.copy(forest);
+      else if (t < 0.62) color.copy(forest).lerp(snow, (t - 0.52) / 0.1);
       else color.copy(snow);
-      if (t > 0.5 && t < 0.9) {
-        const shade = 0.5 + 0.5 * Math.sin(ang * 14);
-        color.lerp(gully, shade * 0.45);
-      }
+      if (t > 0.6 && t < 0.9) color.lerp(gully, (0.5 + 0.5 * Math.sin(ang * 8.0)) * 0.18);
+      const light = Math.cos(ang) * 0.85;
+      if (light > 0) color.lerp(new THREE.Color(0xffcbb8), Math.min(0.28, light * 0.35));
+      else color.lerp(new THREE.Color(0x9eb4d0), Math.min(0.22, -light * 0.3));
       colors.push(color.r, color.g, color.b);
     }
   }
@@ -198,15 +199,15 @@ function makeDeer() {
 
 function addDistantRanges(scene, foot) {
   const ranges = [
-    { x: -200, z: 2600, r: 900, h: 220, c: 0x9aafc4 },
-    { x: 700, z: 2400, r: 740, h: 180, c: 0x8aa0b4 },
-    { x: -1100, z: 2100, r: 620, h: 150, c: 0xb7c6d4 },
-    { x: 200, z: 2900, r: 1100, h: 260, c: 0xc5d2e0 },
+    { x: -1400, z: 3400, r: 1600, h: 280, c: 0xd5e2f0 },
+    { x: 900, z: 3200, r: 1400, h: 240, c: 0xc5d4e8 },
+    { x: -400, z: 3000, r: 1100, h: 200, c: 0xb7c8de },
   ];
   for (const range of ranges) {
-    const geo = new THREE.ConeGeometry(range.r, range.h, 6, 1);
+    const geo = new THREE.SphereGeometry(1, 18, 10, 0, Math.PI * 2, 0, Math.PI * 0.45);
     const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: range.c }));
-    mesh.position.set(range.x, foot + range.h * 0.35, range.z);
+    mesh.scale.set(range.r, range.h * 0.45, range.r * 0.4);
+    mesh.position.set(range.x, 80, range.z + 400);
     scene.add(mesh);
   }
 }
@@ -256,25 +257,26 @@ function cableBetween(a, b, material) {
 }
 
 export function createWorld(scene, course) {
-  const yoteiH = 260;
-  const yoteiR = yoteiH * 2;
-  const yoteiX = -560;
-  const yoteiZ = 1280;
-  const foot = 390;
+  const yoteiH = 1040;
+  const yoteiR = 740;
+  const yoteiX = -430;
+  const yoteiZ = 1580;
+  const foot = -260;
   const yotei = new THREE.Mesh(
-    yoteiGeometry(yoteiR, yoteiH),
-    new THREE.MeshBasicMaterial({ vertexColors: true }),
+    yoteiGeometry(yoteiR, yoteiH, 0.4),
+    new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, metalness: 0 }),
   );
   yotei.position.set(yoteiX, foot, yoteiZ);
   scene.add(yotei);
-  addDistantRanges(scene, foot);
+  addDistantRanges(scene, 240);
 
   const sea = new THREE.Mesh(
     new THREE.PlaneGeometry(3200, 2000, 1, 1),
     new THREE.MeshBasicMaterial({ color: 0x3c6274 }),
   );
   sea.rotation.x = -Math.PI / 2;
-  sea.position.set(yoteiX - 900, 40, yoteiZ);
+  sea.position.set(yoteiX - 1600, 20, yoteiZ + 400);
+  sea.material.color.set(0xc5d6e4);
   scene.add(sea);
 
   const { trunkGeo, trunkMat, crown, crownMat } = createBirchParts();
@@ -317,6 +319,7 @@ export function createWorld(scene, course) {
     fill(pineMesh, pines);
     scene.add(pineMesh);
   }
+  addForestWalls(scene, pineGeo, pineMat);
   addHillForest(scene);
 
   const rockGeo = new THREE.IcosahedronGeometry(0.9, 1);
@@ -407,19 +410,29 @@ export function createWorld(scene, course) {
     emissive: 0xffb15a,
     emissiveIntensity: 0.25,
   });
-  const gondola = buildLift(scene, -18, 36, 920, 78, metal, cabinMat, glass, 1.15);
+  const gondola = buildLift(scene, -18, 36, 920, 78, metal, cabinMat, glass, 1.6);
+  const valley = buildValleyCable(scene);
   const chair = buildLift(scene, 17, 58, 780, 86, metal, std(0x243044, 0.5), glass, 0.7);
 
   const lodge = buildLodge(scene);
-  const hutLamp = buildHut(scene, 108, 16);
+  buildVistaLodge(scene);
+  const hutLamp = buildHut(scene, 210, 22);
   const cranes = [];
-  for (let i = 0; i < 5; i++) {
+  const craneSpots = [
+    [14, 22, 72],
+    [30, 26, 96],
+    [44, 23, 118],
+  ];
+  craneSpots.forEach(([dx, up, z], i) => {
     const bird = makeCrane();
-    bird.userData.phase = i * 1.3;
-    bird.userData.radius = 70 + i * 12;
+    const x = courseCenter(z) + dx;
+    bird.userData.phase = i * 0.8;
+    bird.userData.anchor = new THREE.Vector3(x, terrainHeight(x, z) + up, z);
+    bird.scale.setScalar(2.2);
+    bird.position.copy(bird.userData.anchor);
     scene.add(bird);
     cranes.push(bird);
-  }
+  });
   const deer = [18, -22].map((dx, i) => {
     const z = 460 + i * 520;
     const x = courseCenter(z) + dx;
@@ -468,9 +481,10 @@ export function createWorld(scene, course) {
   markers.castShadow = true;
   scene.add(markers);
   const greeter = makeFox();
-  const foxX = courseCenter(70) - 11;
-  greeter.position.set(foxX, terrainHeight(foxX, 70), 70);
-  greeter.rotation.y = 0.8;
+  greeter.scale.setScalar(1.7);
+  const foxX = courseCenter(50) - 10;
+  greeter.position.set(foxX, terrainHeight(foxX, 50), 50);
+  greeter.rotation.y = 0.9;
   scene.add(greeter);
 
   const nightLights = [...lodge.lights, ...gondola.lamps, ...chair.lamps, hutLamp];
@@ -509,16 +523,18 @@ export function createWorld(scene, course) {
         view.mesh.position.y = view.baseY + Math.sin(time * 2 + flake.phase) * 0.12;
       });
       gondola.update(time);
+      valley.update(time);
       chair.update(time);
-      const hubX = -20;
-      const hubZ = 160;
-      const hubY = terrainHeight(0, 40) + 36;
       cranes.forEach((bird) => {
-        const a = time * 0.18 + bird.userData.phase;
-        const r = bird.userData.radius;
-        bird.position.set(hubX + Math.cos(a) * r, hubY + Math.sin(time * 0.7 + a) * 4, hubZ + Math.sin(a) * r * 0.65);
-        bird.rotation.y = -a + Math.PI / 2;
-        const flap = Math.sin(time * 5 + bird.userData.phase) * 0.45;
+        const a = bird.userData.phase;
+        const anchor = bird.userData.anchor;
+        bird.position.set(
+          anchor.x + Math.sin(time * 0.25 + a) * 6,
+          anchor.y + Math.sin(time * 0.6 + a) * 1.2,
+          anchor.z + time * 0.35,
+        );
+        bird.rotation.y = 0.4;
+        const flap = Math.sin(time * 4.2 + a) * 0.55;
         for (const wing of bird.userData.wings) wing.rotation.z = wing.position.x > 0 ? -flap : flap;
       });
       lodge.steam.forEach((p, i) => {
@@ -552,6 +568,120 @@ export function createWorld(scene, course) {
       for (const view of flakeViews) view.mesh.visible = true;
     },
   };
+}
+
+function addForestWalls(scene, pineGeo, pineMat) {
+  const count = 720;
+  const mesh = new THREE.InstancedMesh(pineGeo, pineMat, count);
+  const dummy = new THREE.Object3D();
+  let n = 0;
+  for (let z = 40; z < 980 && n < count; z += 7) {
+    for (const side of [-1, 1]) {
+      for (let k = 0; k < 2 && n < count; k++) {
+        if (side > 0 && z > 78 && z < 145) continue;
+        const dx = side * (28 + k * 9 + ((z * 0.13) % 4));
+        const x = courseCenter(z) + dx;
+        dummy.position.set(x, terrainHeight(x, z) - 0.6, z + ((k * 3) % 5));
+        dummy.rotation.y = (z * 0.17 + k * 1.7) % (Math.PI * 2);
+        const s = 1.15 + ((Math.floor(z) + k * 3) % 5) * 0.18;
+        dummy.scale.set(s * 0.92, s * 1.15, s);
+        dummy.updateMatrix();
+        mesh.setMatrixAt(n, dummy.matrix);
+        n += 1;
+      }
+    }
+  }
+  mesh.count = n;
+  mesh.instanceMatrix.needsUpdate = true;
+  mesh.frustumCulled = false;
+  mesh.castShadow = false;
+  scene.add(mesh);
+}
+
+function buildValleyCable(scene) {
+  const metal = std(0x4e555c, 0.4, 0.65);
+  const body = std(0xd12626, 0.42, 0.04);
+  const glass = new THREE.MeshStandardMaterial({
+    color: 0xffe4bc,
+    emissive: 0xffb15a,
+    emissiveIntensity: 0.4,
+    roughness: 0.16,
+  });
+  const z = 150;
+  const yLift = 26;
+  const points = [];
+  for (let i = 0; i <= 5; i++) {
+    const x = -70 + i * 30;
+    const zz = z + Math.sin(i * 0.7) * 10;
+    const base = terrainHeight(x, zz);
+    const top = new THREE.Vector3(x, base + yLift, zz);
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.26, yLift, 6), metal);
+    pole.position.set(x, base + yLift * 0.5, zz);
+    pole.castShadow = true;
+    scene.add(pole);
+    points.push(top);
+  }
+  for (let i = 0; i < points.length - 1; i++) scene.add(cableBetween(points[i], points[i + 1], metal));
+  const cabins = [];
+  for (let i = 0; i < 5; i++) {
+    const cabin = new THREE.Group();
+    const shell = new THREE.Mesh(new THREE.BoxGeometry(4.4, 2.6, 3.1), body);
+    const win = new THREE.Mesh(new THREE.BoxGeometry(2.8, 1.05, 3.15), glass);
+    win.position.y = 0.28;
+    cabin.add(shell, win);
+    scene.add(cabin);
+    cabins.push(cabin);
+  }
+  return {
+    update(time) {
+      const spans = points.length - 1;
+      cabins.forEach((cabin, i) => {
+        const u = (time * 0.025 + i / cabins.length) % 1;
+        const f = u * spans;
+        const a = Math.floor(f);
+        const b = Math.min(spans, a + 1);
+        cabin.position.lerpVectors(points[a], points[b], f - a);
+        cabin.position.y -= 1.8;
+      });
+    },
+  };
+}
+
+function buildVistaLodge(scene) {
+  const z = 84;
+  const x = courseCenter(z) + 20;
+  const y = terrainHeight(x, z);
+  const wood = std(0x6a4030, 0.68);
+  const snowMat = std(0xf6f3ec, 0.78);
+  const group = new THREE.Group();
+  group.position.set(x, y, z);
+  group.rotation.y = Math.PI / 2;
+  group.scale.setScalar(1.55);
+  const hall = new THREE.Mesh(new THREE.BoxGeometry(14, 4.4, 7.2), wood);
+  hall.position.y = 2.2;
+  hall.castShadow = true;
+  const roof = new THREE.Mesh(new THREE.BoxGeometry(15.4, 0.7, 8.6), snowMat);
+  roof.position.y = 4.7;
+  roof.castShadow = true;
+  const windowMat = new THREE.MeshStandardMaterial({
+    color: 0xffd7a1,
+    emissive: 0xffa040,
+    emissiveIntensity: 0.85,
+    roughness: 0.18,
+  });
+  for (let i = 0; i < 4; i++) {
+    const win = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 1.5), windowMat);
+    win.position.set(3.7, 2.4, -4.2 + i * 2.5);
+    win.rotation.y = Math.PI / 2;
+    group.add(win);
+  }
+  const chimney = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.6, 0.8), std(0x5c463c, 0.8));
+  chimney.position.set(4.2, 5.6, 0.4);
+  group.add(hall, roof, chimney);
+  scene.add(group);
+  const lamp = new THREE.PointLight(0xffb15a, 1.4, 18, 2);
+  lamp.position.set(x, y + 3.2, z);
+  scene.add(lamp);
 }
 
 function buildLift(scene, dx, z0, z1, step, metal, bodyMat, glass, scale) {

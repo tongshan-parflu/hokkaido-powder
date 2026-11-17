@@ -77,8 +77,9 @@ function buildSkier() {
   const scarf = new THREE.Group();
   scarf.position.set(0, 0.5, -0.08);
   upper.add(scarf);
-  add(scarf, new THREE.BoxGeometry(0.16, 0.55, 0.04), scarfMat, 0.05, -0.22, -0.04, 0.4, 0.2, 0.15);
-  add(scarf, new THREE.BoxGeometry(0.14, 0.42, 0.035), scarfMat, -0.06, -0.16, -0.02, 0.25, -0.3, -0.2);
+  const scarfMatRed = std(0xe23b32, 0.65);
+  add(scarf, new THREE.BoxGeometry(0.14, 0.05, 1.25), scarfMatRed, 0.08, 0.02, -0.72, 0.15, 0.2, 0.05);
+  add(scarf, new THREE.BoxGeometry(0.1, 0.04, 0.95), scarfMatRed, -0.06, -0.02, -0.55, -0.2, 0.15, -0.08);
   add(upper, new RoundedBoxGeometry(0.28, 0.32, 0.12, 2, 0.02), dark, 0, 0.3, -0.12);
 
   const armL = new THREE.Group();
@@ -171,8 +172,9 @@ export function createSkier(scene) {
     mesh.skiR.rotation.z = steerSm * 0.18;
     mesh.poleL.rotation.x = 0.35 + tuckSm * 0.45 + Math.sin(time * 2.2) * 0.05;
     mesh.poleR.rotation.x = 0.35 + tuckSm * 0.45 + Math.sin(time * 2.2 + 1) * 0.05;
-    mesh.scarf.rotation.y = Math.sin(time * 3.2) * 0.35 + steerSm * 0.2;
-    mesh.scarf.rotation.x = 0.15 + Math.sin(time * 4.1) * 0.12;
+    mesh.scarf.rotation.y = Math.sin(time * 5.5) * 0.22 + steerSm * 0.35;
+    mesh.scarf.rotation.x = -1.15 + Math.sin(time * 7.2) * 0.1;
+    mesh.scarf.rotation.z = Math.sin(time * 4.4) * 0.2;
   }
 
   return {

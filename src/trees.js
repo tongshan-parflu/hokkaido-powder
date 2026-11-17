@@ -83,33 +83,74 @@ export function createBirchParts() {
   return { trunkGeo, trunkMat, crown, crownMat };
 }
 
-export function createPineGeometry() {
-  const parts = [];
-  const layers = [
-    { r: 2.5, h: 2.4, y: 0.2, c: 0x16362c },
-    { r: 2.0, h: 2.1, y: 1.15, c: 0x1c4034 },
-    { r: 1.45, h: 1.8, y: 2.15, c: 0x143028 },
-    { r: 0.85, h: 1.4, y: 3.15, c: 0x1a3c30 },
-  ];
-  for (const layer of layers) {
-    const cone = new THREE.ConeGeometry(layer.r, layer.h, 9);
-    const skirt = cone.attributes.position;
-    for (let vi = 0; vi < skirt.count; vi++) {
-      const edge = Math.hypot(skirt.getX(vi), skirt.getZ(vi)) / layer.r;
-      if (edge > 0.42) skirt.setY(vi, skirt.getY(vi) - layer.h * 0.22 * (edge - 0.42));
-    }
-    cone.translate(0, layer.y + layer.h / 2, 0);
-    paint(cone, layer.c);
-    parts.push(cone);
-    const cap = new THREE.ConeGeometry(layer.r * 0.92, layer.h * 0.42, 8);
-    cap.translate(0, layer.y + layer.h * 0.82, 0);
-    paint(cap, 0xf4f8fc);
-    parts.push(cap);
+function paintFir(geo) {
+  const pos = geo.attributes.position;
+  const colors = new Float32Array(pos.count * 3);
+  const snow = new THREE.Color(0xf4f7fb);
+  const needle = new THREE.Color(0x1d4036);
+  const frost = new THREE.Color(0xd5e0ea);
+  let minY = Infinity;
+  let maxY = -Infinity;
+  for (let i = 0; i < pos.count; i++) {
+    const y = pos.getY(i);
+    if (y < minY) minY = y;
+    if (y > maxY) maxY = y;
   }
-  const tip = new THREE.SphereGeometry(0.28, 8, 6);
-  tip.translate(0, 5.15, 0);
-  paint(tip, 0xf7fbff);
-  parts.push(tip);
+  const span = Math.max(0.001, maxY - minY);
+  for (let i = 0; i < pos.count; i++) {
+    const y = (pos.getY(i) - minY) / span;
+    const edge = Math.hypot(pos.getX(i), pos.getZ(i));
+    const color = needle.clone();
+    color.lerp(frost, Math.min(1, y * 0.65 + edge * 0.08));
+    color.lerp(snow, Math.min(1, y * 0.85));
+    colors[i * 3] = color.r;
+    colors[i * 3 + 1] = color.g;
+    colors[i * 3 + 2] = color.b;
+  }
+  geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  return geo;
+}
+
+function firTier(radius, height, y, seed) {
+  const cone = new THREE.ConeGeometry(radius, height, 12);
+  const pos = cone.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    const z = pos.getZ(i);
+    const rad = Math.hypot(x, z);
+    const edge = radius > 0 ? rad / radius : 0;
+    const ang = Math.atan2(z, x);
+    const jag = 1 + 0.22 * Math.sin(ang * 4 + seed) + 0.1 * Math.sin(ang * 9 + seed * 2);
+    if (rad > 0.02) {
+      pos.setX(i, (x / rad) * rad * jag);
+      pos.setZ(i, (z / rad) * rad * jag);
+    }
+    if (edge > 0.28) pos.setY(i, pos.getY(i) - height * 0.38 * (edge - 0.28));
+  }
+  cone.translate(0, y + height * 0.32, 0);
+  return paintFir(cone);
+}
+
+export function createPineGeometry(seed = 1) {
+  const parts = [];
+  const tiers = 9;
+  let y = 0.2;
+  for (let i = 0; i < tiers; i++) {
+    const t = i / (tiers - 1);
+    const radius = 3.1 * (1 - t * 0.82);
+    const height = 1.55 + (1 - t) * 0.85;
+    parts.push(firTier(radius, height, y, seed + i * 1.7));
+    const clumps = 2;
+    for (let c = 0; c < clumps; c++) {
+      const ang = seed * 2 + i * 0.7 + (c / clumps) * Math.PI * 2;
+      const clump = new THREE.SphereGeometry(radius * 0.2, 6, 5);
+      clump.scale(1.15, 0.42, 0.9);
+      clump.translate(Math.cos(ang) * radius * 0.42, y + height * 0.48, Math.sin(ang) * radius * 0.42);
+      paint(clump, 0xf7fbff);
+      parts.push(clump);
+    }
+    y += height * 0.46;
+  }
   const merged = mergeGeometries(parts, false);
   parts.forEach((g) => g.dispose());
   merged.computeVertexNormals();
@@ -167,7 +208,7 @@ export function addHillForest(scene) {
   for (let z = 30; z < 1900 && n < count; z += 22) {
     for (const side of [-1, 1]) {
       for (let k = 0; k < 2 && n < count; k++) {
-        const dx = side * (42 + ((z * 0.13 + k * 17) % 36));
+        const dx = side * (58 + ((z * 0.13 + k * 17) % 48));
         const x = courseCenter(z) + dx;
         dummy.position.set(x, terrainHeight(x, z), z + ((k * 5) % 9));
         dummy.rotation.y = side > 0 ? -Math.PI / 2 : Math.PI / 2;

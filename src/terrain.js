@@ -13,9 +13,9 @@ export function createTerrain(scene) {
   const piste = new Float32Array(pos.count);
   const normal = { x: 0, y: 1, z: 0 };
   const color = new THREE.Color();
-  const warm = new THREE.Color(0xfff4e8);
-  const cool = new THREE.Color(0xb7c9e2);
-  const sunDir = new THREE.Vector3(-0.92, 0.32, -0.22).normalize();
+  const warm = new THREE.Color(0xfff4ea);
+  const cool = new THREE.Color(0xd7e4f6);
+  const sunDir = new THREE.Vector3(0.72, 0.28, 0.15).normalize();
 
   for (let i = 0; i < pos.count; i++) {
     const x = pos.getX(i);

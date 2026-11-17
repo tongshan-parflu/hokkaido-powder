@@ -1,59 +1,45 @@
 import * as THREE from 'three';
 
-function configure(tex, srgb) {
-  tex.wrapS = THREE.RepeatWrapping;
-  tex.wrapT = THREE.RepeatWrapping;
-  tex.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace;
-  tex.anisotropy = 8;
-  return tex;
-}
-
 export function createSnowMaterial() {
   const material = new THREE.MeshStandardMaterial({
-    color: 0xf4f7fb,
-    roughness: 0.86,
-    metalness: 0.02,
-    envMapIntensity: 0.85,
+    color: 0xfff7f1,
+    roughness: 0.78,
+    metalness: 0.0,
+    envMapIntensity: 0.35,
+    vertexColors: true,
   });
-  material.userData.sunDir = new THREE.Vector3(-0.92, 0.32, -0.22).normalize();
-
-  const loader = new THREE.TextureLoader();
-  const apply = (name, slot, srgb) => {
-    loader.load(`/assets/${name}`, (tex) => {
-      configure(tex, srgb);
-      material[slot] = tex;
-      if (slot === 'normalMap') material.normalScale.set(0.18, 0.18);
-      material.needsUpdate = true;
-    });
-  };
-  apply('snow_diff.jpg', 'map', true);
-  apply('snow_nor.jpg', 'normalMap', false);
-  apply('snow_rough.jpg', 'roughnessMap', false);
+  material.userData.sunDir = new THREE.Vector3(0.72, 0.22, 0.2).normalize();
 
   material.onBeforeCompile = (shader) => {
     shader.uniforms.uSunDir = { value: material.userData.sunDir };
     shader.vertexShader = shader.vertexShader
       .replace(
         '#include <common>',
-        '#include <common>\nattribute float aPiste;\nvarying vec3 vSnowWorld;\nvarying float vPiste;',
+        '#include <common>\nattribute float aPiste;\nvarying vec3 vSnowWorld;\nvarying float vPiste;\nvarying vec3 vSnowN;',
       )
       .replace(
         '#include <worldpos_vertex>',
-        '#include <worldpos_vertex>\n\tvSnowWorld = worldPosition.xyz;\n\tvPiste = aPiste;',
+        '#include <worldpos_vertex>\n\tvSnowWorld = worldPosition.xyz;\n\tvPiste = aPiste;\n\tvSnowN = normalize(mat3(modelMatrix) * normal);',
       );
     shader.fragmentShader = shader.fragmentShader
       .replace(
         '#include <common>',
-        '#include <common>\nvarying vec3 vSnowWorld;\nvarying float vPiste;\nuniform vec3 uSunDir;',
+        '#include <common>\nvarying vec3 vSnowWorld;\nvarying float vPiste;\nvarying vec3 vSnowN;\nuniform vec3 uSunDir;',
       )
       .replace(
         '#include <color_fragment>',
         `#include <color_fragment>
         {
-          float cord = sin(vSnowWorld.x * 6.0);
-          vec3 powder = vec3(0.74, 0.82, 0.94);
-          diffuseColor.rgb = mix(diffuseColor.rgb * powder, diffuseColor.rgb, vPiste);
-          diffuseColor.rgb += vec3(0.035) * cord * vPiste;
+          float cx = sin(vSnowWorld.z * 0.0036) * 18.0 + sin(vSnowWorld.z * 0.00155 + 0.7) * 7.0;
+          float across = vSnowWorld.x - cx;
+          float ridge = abs(fract(across * 1.45) - 0.5);
+          float cord = smoothstep(0.06, 0.46, ridge);
+          vec3 powder = vec3(0.90, 0.94, 1.0);
+          vec3 warmSnow = vec3(1.06, 1.0, 0.94);
+          diffuseColor.rgb *= mix(powder, warmSnow, vPiste);
+          diffuseColor.rgb += vec3(0.18, 0.15, 0.11) * (cord - 0.48) * vPiste;
+          float fres = pow(1.0 - max(dot(normalize(vSnowN), normalize(cameraPosition - vSnowWorld)), 0.0), 2.4);
+          diffuseColor.rgb += vec3(1.0, 0.86, 0.72) * fres * 0.12;
         }`,
       )
       .replace(
@@ -64,7 +50,7 @@ export function createSnowMaterial() {
           float n = fract(sin(dot(cell, vec2(127.1, 311.7))) * 43758.5453);
           float glint = smoothstep(0.988, 0.999, n);
           vec3 viewDir = normalize(cameraPosition - vSnowWorld);
-          float spec = pow(max(dot(normalize(normal), normalize(uSunDir + viewDir)), 0.0), 20.0);
+          float spec = pow(max(dot(normalize(vSnowN), normalize(uSunDir + viewDir)), 0.0), 20.0);
           totalEmissiveRadiance += vec3(1.0, 0.95, 0.85) * glint * spec * 0.7;
         }`,
       );
