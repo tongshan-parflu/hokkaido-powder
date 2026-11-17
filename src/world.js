@@ -6,7 +6,7 @@ import {
   slopeElevation,
   terrainHeight,
 } from './course.js';
-import { addHillForest, createBirchParts, createPineGeometry, setTreeSway } from './trees.js';
+import { cloneAnimated, instanceTrees, prepareTree } from './models.js';
 import { puffTexture } from './materials.js';
 
 function std(color, roughness, metalness = 0, extras = {}) {
@@ -47,9 +47,9 @@ function signTexture(text) {
   return tex;
 }
 
-function yoteiGeometry(radius, height, minT = 0.58) {
-  const radial = 96;
-  const rows = 40;
+function yoteiGeometry(radius, height) {
+  const radial = 120;
+  const rows = 56;
   const positions = [];
   const colors = [];
   const indices = [];
@@ -60,23 +60,28 @@ function yoteiGeometry(radius, height, minT = 0.58) {
   const color = new THREE.Color();
   const stride = radial + 1;
   for (let iy = 0; iy <= rows; iy++) {
-    const t = minT + (iy / rows) * (1 - minT);
-    const flank = Math.min(1, Math.max(0, (t - 0.38) / 0.56));
-    let r = radius * 0.48 * (1.0 - Math.pow(flank, 1.02));
-    if (t > 0.92) r = radius * 0.018 * (1.0 - (t - 0.92) / 0.08);
-    const y = t * height;
+    const t = iy / rows;
+    let r;
+    let y = t * height;
+    if (t < 0.9) r = radius * (1 - t);
+    else {
+      const k = (t - 0.9) / 0.1;
+      r = radius * 0.1 * (1 - 0.35 * k);
+      y = height * (0.92 - 0.03 * k);
+    }
     for (let ix = 0; ix <= radial; ix++) {
       const ang = (ix / radial) * Math.PI * 2;
-      const gullies = t > 0.55 && t < 0.9 ? Math.sin(ang * 8.0) * 0.045 * r : 0;
+      const gullies = t > 0.18 && t < 0.82 ? Math.sin(ang * 9.0) * 0.055 * r + Math.sin(ang * 3.0) * 0.02 * r : 0;
       const rr = Math.max(0, r + gullies);
       positions.push(Math.cos(ang) * rr, y, Math.sin(ang) * rr);
-      if (t < 0.52) color.copy(forest);
-      else if (t < 0.62) color.copy(forest).lerp(snow, (t - 0.52) / 0.1);
+      if (t < 0.34) color.copy(forest);
+      else if (t < 0.48) color.copy(forest).lerp(rock, (t - 0.34) / 0.14);
+      else if (t < 0.58) color.copy(rock).lerp(snow, (t - 0.48) / 0.1);
       else color.copy(snow);
-      if (t > 0.6 && t < 0.9) color.lerp(gully, (0.5 + 0.5 * Math.sin(ang * 8.0)) * 0.18);
-      const light = Math.cos(ang) * 0.85;
-      if (light > 0) color.lerp(new THREE.Color(0xffcbb8), Math.min(0.28, light * 0.35));
-      else color.lerp(new THREE.Color(0x9eb4d0), Math.min(0.22, -light * 0.3));
+      if (t > 0.45 && t < 0.84) color.lerp(gully, (0.5 + 0.5 * Math.sin(ang * 9.0)) * 0.28);
+      const light = Math.cos(ang) * 0.9 + 0.08;
+      if (light > 0) color.lerp(new THREE.Color(0xffc4aa), Math.min(0.42, light * 0.5));
+      else color.lerp(new THREE.Color(0x7f9abd), Math.min(0.4, -light * 0.55));
       colors.push(color.r, color.g, color.b);
     }
   }
@@ -106,7 +111,23 @@ function smooth(t, a, b) {
   return x * x * (3 - 2 * x);
 }
 
+let foxSource = null;
+const foxMixers = [];
+
 function makeFox() {
+  if (foxSource) {
+    const model = cloneAnimated(foxSource, 1.15);
+    const mixer = new THREE.AnimationMixer(model);
+    const clip = foxSource.animations.find((clip) => clip.name === 'Survey') || foxSource.animations[0];
+    if (clip) mixer.clipAction(clip).play();
+    foxMixers.push(mixer);
+    const group = new THREE.Group();
+    group.add(model);
+    group.traverse((obj) => {
+      if (obj.isMesh) obj.castShadow = true;
+    });
+    return group;
+  }
   const orange = std(0xe07a32, 0.55);
   const white = std(0xfff6ee, 0.6);
   const dark = std(0x1c1c1c, 0.4);
@@ -199,9 +220,9 @@ function makeDeer() {
 
 function addDistantRanges(scene, foot) {
   const ranges = [
-    { x: -1400, z: 3400, r: 1600, h: 280, c: 0xd5e2f0 },
-    { x: 900, z: 3200, r: 1400, h: 240, c: 0xc5d4e8 },
-    { x: -400, z: 3000, r: 1100, h: 200, c: 0xb7c8de },
+    { x: -2400, z: 6400, r: 1700, h: 380, c: 0xd5e2f0 },
+    { x: 1900, z: 6200, r: 1500, h: 320, c: 0xc9d6e8 },
+    { x: 200, z: 7200, r: 2100, h: 460, c: 0xe0eaf6 },
   ];
   for (const range of ranges) {
     const geo = new THREE.SphereGeometry(1, 18, 10, 0, Math.PI * 2, 0, Math.PI * 0.45);
@@ -256,15 +277,16 @@ function cableBetween(a, b, material) {
   return mesh;
 }
 
-export function createWorld(scene, course) {
-  const yoteiH = 1040;
-  const yoteiR = 740;
-  const yoteiX = -430;
-  const yoteiZ = 1580;
-  const foot = -260;
+export function createWorld(scene, course, assets) {
+  foxSource = assets?.fox || null;
+  const yoteiH = 1000;
+  const yoteiR = yoteiH * 2;
+  const yoteiX = -140;
+  const yoteiZ = 4600;
+  const foot = 40;
   const yotei = new THREE.Mesh(
-    yoteiGeometry(yoteiR, yoteiH, 0.4),
-    new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, metalness: 0 }),
+    yoteiGeometry(yoteiR, yoteiH),
+    new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.86, metalness: 0 }),
   );
   yotei.position.set(yoteiX, foot, yoteiZ);
   scene.add(yotei);
@@ -279,48 +301,43 @@ export function createWorld(scene, course) {
   sea.material.color.set(0xc5d6e4);
   scene.add(sea);
 
-  const { trunkGeo, trunkMat, crown, crownMat } = createBirchParts();
-  const pineGeo = createPineGeometry();
-  const pineMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.78 });
-  pineMat.onBeforeCompile = (shader) => {
-    shader.uniforms.uSway = { value: 0 };
-    pineMat.userData.sway = shader.uniforms.uSway;
-    shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', '#include <common>\nuniform float uSway;')
-      .replace(
-        '#include <begin_vertex>',
-        '#include <begin_vertex>\ntransformed.x += sin(uSway + position.y) * position.y * 0.01;',
-      );
-  };
   const dummy = new THREE.Object3D();
-  const birches = course.trees.filter((t) => t.kind === 'birch');
   const pines = course.trees.filter((t) => t.kind === 'pine');
-  function fill(mesh, list) {
-    list.forEach((item, i) => {
-      dummy.position.set(item.x, terrainHeight(item.x, item.z), item.z);
-      dummy.rotation.set(0, item.rot || 0, 0);
-      dummy.scale.setScalar(item.scale || 1);
-      dummy.updateMatrix();
-      mesh.setMatrixAt(i, dummy.matrix);
+  if (assets?.pines) {
+    const near = [];
+    const far = [];
+    pines.forEach((tree, i) => {
+      const spot = {
+        x: tree.x,
+        y: terrainHeight(tree.x, tree.z),
+        z: tree.z,
+        rot: tree.rot,
+        scale: 0.85 + (tree.scale || 1) * 0.35,
+      };
+      if (tree.z < 340) near.push({ ...spot, scale: spot.scale * 1.15 });
+      else if (far.length < 380) far.push(spot);
     });
-    mesh.instanceMatrix.needsUpdate = true;
-    mesh.frustumCulled = false;
-    mesh.receiveShadow = true;
+    const hero = assets.pines.map((root) => prepareTree(root, 16, 0.48));
+    hero.forEach((parts, variant) => {
+      const list = near.filter((_, i) => i % hero.length === variant);
+      instanceTrees(scene, parts, list);
+    });
+    const snowy = assets.snowTrees.map((root) => prepareTree(root, 11, 0.35));
+    snowy.forEach((parts, variant) => {
+      const list = far.filter((_, i) => i % snowy.length === variant);
+      instanceTrees(scene, parts, list);
+    });
+    const valley = [];
+    for (let i = 0; i < 160; i++) {
+      const ang = (i / 160) * Math.PI * 2;
+      const rad = 2300 + (i % 7) * 80;
+      const x = yoteiX + Math.cos(ang) * rad;
+      const z = yoteiZ + Math.sin(ang) * rad * 0.55;
+      if (z < 2300 || Math.abs(x) < 80) continue;
+      valley.push({ x, y: 48, z, rot: ang, scale: 1.4 + (i % 5) * 0.25 });
+    }
+    instanceTrees(scene, snowy[0], valley);
   }
-  if (birches.length) {
-    const trunks = new THREE.InstancedMesh(trunkGeo, trunkMat, birches.length);
-    const crowns = new THREE.InstancedMesh(crown, crownMat, birches.length);
-    fill(trunks, birches);
-    fill(crowns, birches);
-    scene.add(trunks, crowns);
-  }
-  if (pines.length) {
-    const pineMesh = new THREE.InstancedMesh(pineGeo, pineMat, pines.length);
-    fill(pineMesh, pines);
-    scene.add(pineMesh);
-  }
-  addForestWalls(scene, pineGeo, pineMat);
-  addHillForest(scene);
 
   const rockGeo = new THREE.IcosahedronGeometry(0.9, 1);
   const rockPos = rockGeo.attributes.position;
@@ -415,7 +432,8 @@ export function createWorld(scene, course) {
   const chair = buildLift(scene, 17, 58, 780, 86, metal, std(0x243044, 0.5), glass, 0.7);
 
   const lodge = buildLodge(scene);
-  buildVistaLodge(scene);
+  if (assets?.lodge) buildAssetLodge(scene, assets.lodge);
+  else buildVistaLodge(scene);
   const hutLamp = buildHut(scene, 210, 22);
   const cranes = [];
   const craneSpots = [
@@ -481,8 +499,7 @@ export function createWorld(scene, course) {
   markers.castShadow = true;
   scene.add(markers);
   const greeter = makeFox();
-  greeter.scale.setScalar(1.7);
-  const foxX = courseCenter(50) - 10;
+  const foxX = courseCenter(42) - 8;
   greeter.position.set(foxX, terrainHeight(foxX, 50), 50);
   greeter.rotation.y = 0.9;
   scene.add(greeter);
@@ -495,8 +512,7 @@ export function createWorld(scene, course) {
     followSky() {},
     update(dt) {
       time += dt;
-      setTreeSway(time);
-      if (pineMat.userData.sway) pineMat.userData.sway.value = time;
+      for (const mixer of foxMixers) mixer.update(dt);
       for (const view of gateViews) {
         for (const flag of view.flags) {
           flag.rotation.y = Math.sin(time * 2.2 + flag.userData.phase) * 0.25;
@@ -607,11 +623,11 @@ function buildValleyCable(scene) {
     emissiveIntensity: 0.4,
     roughness: 0.16,
   });
-  const z = 150;
-  const yLift = 26;
+  const z = 360;
+  const yLift = 42;
   const points = [];
   for (let i = 0; i <= 5; i++) {
-    const x = -70 + i * 30;
+    const x = -40 + i * 28;
     const zz = z + Math.sin(i * 0.7) * 10;
     const base = terrainHeight(x, zz);
     const top = new THREE.Vector3(x, base + yLift, zz);
@@ -625,10 +641,12 @@ function buildValleyCable(scene) {
   const cabins = [];
   for (let i = 0; i < 5; i++) {
     const cabin = new THREE.Group();
-    const shell = new THREE.Mesh(new THREE.BoxGeometry(4.4, 2.6, 3.1), body);
-    const win = new THREE.Mesh(new THREE.BoxGeometry(2.8, 1.05, 3.15), glass);
+    const shell = new THREE.Mesh(new THREE.BoxGeometry(3.4, 2.3, 2.6), body);
+    const roof = new THREE.Mesh(new THREE.BoxGeometry(3.7, 0.28, 2.9), std(0xf7f4ee, 0.55));
+    roof.position.y = 1.25;
+    const win = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.85, 2.65), glass);
     win.position.y = 0.28;
-    cabin.add(shell, win);
+    cabin.add(shell, roof, win);
     scene.add(cabin);
     cabins.push(cabin);
   }
@@ -645,6 +663,48 @@ function buildValleyCable(scene) {
       });
     },
   };
+}
+
+function buildAssetLodge(scene, parts) {
+  const z = 86;
+  const x = courseCenter(z) + 16;
+  const y = terrainHeight(x, z);
+  const group = new THREE.Group();
+  group.position.set(x, y, z);
+  group.rotation.y = Math.PI * 0.85;
+  const add = (src, px, py, pz) => {
+    const piece = src.clone(true);
+    piece.position.set(px, py, pz);
+    group.add(piece);
+  };
+  for (let i = 0; i < 4; i++) {
+    add(i === 1 ? parts.door : i % 2 === 0 ? parts.win : parts.wall, (i - 1.5) * 2.05, 0, 0);
+    add(parts.roof, (i - 1.5) * 2.05, 2.15, 0);
+  }
+  add(parts.logs, -4.2, 0, 0.4);
+  add(parts.logs, 4.2, 0, 0.4);
+  add(parts.chimney, 2.2, 2.15, 0.2);
+  group.traverse((obj) => {
+    if (obj.isMesh) {
+      obj.castShadow = true;
+      obj.receiveShadow = true;
+    }
+  });
+  scene.add(group);
+  const glow = new THREE.PointLight(0xffb15a, 3.2, 28, 2);
+  glow.position.set(x - 2, y + 2.4, z + 2);
+  scene.add(glow);
+  const windowMat = new THREE.MeshStandardMaterial({
+    color: 0xffd7a1,
+    emissive: 0xff9a3c,
+    emissiveIntensity: 1.1,
+    roughness: 0.2,
+  });
+  for (let i = 0; i < 4; i++) {
+    const win = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 1.25), windowMat);
+    win.position.set(x - 1.2 + (i - 1.5) * 1.6, y + 1.7, z + 2.4);
+    scene.add(win);
+  }
 }
 
 function buildVistaLodge(scene) {

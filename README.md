@@ -35,7 +35,13 @@ npm run preview
 
 ## Assets
 
-Snow textures and the sky HDRI are CC0 from Poly Haven (`snow_02`, `kloofendal_48d_partly_cloudy_puresky`), stored in `public/assets/`.
+CC0 unless noted. Credit is included even where the license does not require it.
+
+- Quaternius, Stylized Nature MegaKit (standard) — pines. [quaternius.com](https://quaternius.com)
+- Kenney, Holiday Kit — snow trees and cabin pieces. [kenney.nl](https://kenney.nl)
+- Kay Lousberg, KayKit Adventurers — rigged skier. [kaylousberg.com](https://kaylousberg.com)
+- Fox model by PixelMannen (CC0). Rigging and glTF conversion by tomkranis (CC-BY 4.0), via the Khronos glTF sample models.
+- Poly Haven — `qwantani_sunset` HDRI (Greg Zaal, CC0) and `snow_02` textures. [polyhaven.com](https://polyhaven.com)
 
 ## Files
 

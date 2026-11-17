@@ -116,7 +116,7 @@ export function createPipeline(scene, camera) {
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.setClearColor(0xd7c8bc, 1);
 
-  scene.fog = new THREE.FogExp2(0xf3c8b4, 0.00016);
+  scene.fog = new THREE.FogExp2(0xf6cbb4, 0.0001);
   scene.background = new THREE.Color(0xd9cfc6);
 
   const hemi = new THREE.HemisphereLight(0xffd0b0, 0x6a88c0, 0.62);
@@ -133,18 +133,19 @@ export function createPipeline(scene, camera) {
   scene.add(sun);
   scene.add(sun.target);
 
-  const sky = new THREE.Mesh(new THREE.SphereGeometry(4200, 32, 20), skyMaterial());
+  const sky = new THREE.Mesh(new THREE.SphereGeometry(7000, 32, 20), skyMaterial());
   sky.frustumCulled = false;
   sky.renderOrder = -1;
+  sky.visible = false;
   scene.add(sky);
 
-  new RGBELoader().load('/assets/sky.hdr', (hdr) => {
+  new RGBELoader().load('/assets/sunset.hdr', (hdr) => {
     hdr.mapping = THREE.EquirectangularReflectionMapping;
+    scene.background = hdr;
+    scene.environment = hdr;
+    scene.environmentIntensity = 1.05;
     const pmrem = new THREE.PMREMGenerator(renderer);
-    const env = pmrem.fromEquirectangular(hdr).texture;
-    scene.environment = env;
-    scene.environmentIntensity = 0.22;
-    hdr.dispose();
+    scene.environment = pmrem.fromEquirectangular(hdr).texture;
     pmrem.dispose();
   });
 
@@ -208,6 +209,7 @@ export function createPipeline(scene, camera) {
 
   function setNight(on) {
     night = on;
+    sky.visible = on;
     sky.material.uniforms.uNight.value = on ? 1 : 0;
     grade.uniforms.uNight.value = on ? 1 : 0;
     sun.intensity = on ? 0.18 : 3.8;
@@ -216,7 +218,7 @@ export function createPipeline(scene, camera) {
     hemi.color.set(on ? 0x1c2744 : 0xffd0b0);
     ambient.intensity = on ? 0.08 : 0.08;
     scene.fog.color.set(on ? 0x1a2436 : 0xf0c2b0);
-    scene.fog.density = on ? 0.0009 : 0.00016;
+    scene.fog.density = on ? 0.0009 : 0.0001;
     scene.environmentIntensity = on ? 0.12 : 0.22;
     renderer.toneMappingExposure = on ? 0.62 : 0.98;
     bloom.strength = on ? 0.28 : 0.22;

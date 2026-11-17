@@ -154,22 +154,13 @@ export function puffTexture() {
   canvas.width = 128;
   canvas.height = 128;
   const ctx = canvas.getContext('2d');
-  const blobs = [
-    [64, 64, 48],
-    [46, 58, 26],
-    [80, 52, 22],
-    [60, 78, 24],
-  ];
-  for (const [x, y, r] of blobs) {
-    const g = ctx.createRadialGradient(x, y, 0, x, y, r);
-    g.addColorStop(0, 'rgba(255,255,255,0.95)');
-    g.addColorStop(0.45, 'rgba(255,255,255,0.45)');
-    g.addColorStop(1, 'rgba(255,255,255,0)');
-    ctx.fillStyle = g;
-    ctx.beginPath();
-    ctx.arc(x, y, r, 0, Math.PI * 2);
-    ctx.fill();
-  }
+  const g = ctx.createRadialGradient(64, 64, 0, 64, 64, 60);
+  g.addColorStop(0, 'rgba(255,252,248,0.9)');
+  g.addColorStop(0.22, 'rgba(255,250,245,0.45)');
+  g.addColorStop(0.55, 'rgba(255,248,240,0.12)');
+  g.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 128, 128);
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
   return tex;

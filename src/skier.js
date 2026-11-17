@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { resetRider, stepPhysics } from './physics.js';
 import { terrainHeight, terrainNormal } from './course.js';
+import { cloneAnimated } from './models.js';
 
 const _normal = { x: 0, y: 1, z: 0 };
 const _up = new THREE.Vector3();
@@ -116,8 +117,110 @@ function buildSkier() {
   return { root, spin, bank, hips, upper, armL, armR, shinL, shinR, skiL, skiR, poleL, poleR, scarf, shadow };
 }
 
-export function createSkier(scene) {
-  const mesh = buildSkier();
+function reddenJacket(material) {
+  const image = material.map.image;
+  if (!image || material.userData.reddened) return;
+  const canvas = document.createElement('canvas');
+  canvas.width = image.width;
+  canvas.height = image.height;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(image, 0, 0);
+  const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const data = pixels.data;
+  for (let i = 0; i < data.length; i += 4) {
+    const r = data[i];
+    const g = data[i + 1];
+    const b = data[i + 2];
+    if (g > r + 12 && g > b + 8) {
+      data[i] = 176;
+      data[i + 1] = 36;
+      data[i + 2] = 40;
+    } else if (r > 80 && r < 200 && g > 40 && g < 130 && b < 90 && r > g + 15 && r > b + 25) {
+      data[i] = 198;
+      data[i + 1] = 48;
+      data[i + 2] = 42;
+    }
+  }
+  ctx.putImageData(pixels, 0, 0);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.flipY = material.map.flipY;
+  material.map = tex;
+  material.userData.reddened = true;
+  material.needsUpdate = true;
+}
+
+function buildRigged(gltf) {
+  const model = cloneAnimated(gltf, 1.72);
+  model.traverse((obj) => {
+    if (obj.name && /Knife|Crossbow|Throwable/.test(obj.name)) obj.visible = false;
+    if (obj.isMesh && obj.material?.map?.image) reddenJacket(obj.material);
+  });
+  const bones = {};
+  const rest = {};
+  model.traverse((obj) => {
+    if (obj.isBone) {
+      bones[obj.name] = obj;
+      rest[obj.name] = obj.quaternion.clone();
+    }
+  });
+  const scarfMat = new THREE.MeshStandardMaterial({
+    color: 0xe10600,
+    roughness: 0.45,
+    side: THREE.DoubleSide,
+  });
+  const scarf = new THREE.Group();
+  const tail = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 1.7, 1, 8), scarfMat);
+  tail.position.set(0.05, -0.85, -0.25);
+  scarf.add(tail);
+  const anchor = bones.chest || bones.spine || model;
+  anchor.add(scarf);
+  const mixer = new THREE.AnimationMixer(model);
+  const clip = gltf.animations.find((item) => item.name === 'Sit_Chair_Idle')
+    || gltf.animations.find((item) => item.name === 'Idle');
+  if (clip) mixer.clipAction(clip).play();
+  model.rotation.x = 0.72;
+  const skiMat = new THREE.MeshStandardMaterial({ color: 0x1b2430, roughness: 0.32, metalness: 0.08 });
+  const skiGeo = new THREE.BoxGeometry(0.11, 0.025, 1.65);
+  const skiL = new THREE.Mesh(skiGeo, skiMat);
+  const skiR = skiL.clone();
+  skiL.position.set(-0.15, 0.05, 0.2);
+  skiR.position.set(0.16, 0.05, 0.2);
+  const tipGeo = new THREE.BoxGeometry(0.11, 0.02, 0.28);
+  const tipL = new THREE.Mesh(tipGeo, skiMat);
+  const tipR = tipL.clone();
+  tipL.position.set(-0.15, 0.12, 0.95);
+  tipR.position.set(0.16, 0.12, 0.95);
+  tipL.rotation.x = -0.7;
+  tipR.rotation.x = -0.7;
+  const poleMat = new THREE.MeshStandardMaterial({ color: 0x2c3136, metalness: 0.4, roughness: 0.35 });
+  const poleGeo = new THREE.CylinderGeometry(0.012, 0.01, 1.35, 6);
+  const poleL = new THREE.Mesh(poleGeo, poleMat);
+  const poleR = poleL.clone();
+  poleL.position.set(-0.38, 0.75, 0.25);
+  poleR.position.set(0.38, 0.75, 0.25);
+  poleL.rotation.z = 0.25;
+  poleR.rotation.z = -0.25;
+  poleL.rotation.x = 0.45;
+  poleR.rotation.x = 0.45;
+  const root = new THREE.Group();
+  const spin = new THREE.Group();
+  const bank = new THREE.Group();
+  root.add(spin);
+  spin.add(bank);
+  bank.add(model, skiL, skiR, tipL, tipR, poleL, poleR);
+  const shadowGeo = new THREE.CircleGeometry(0.7, 20);
+  shadowGeo.rotateX(-Math.PI / 2);
+  const shadow = new THREE.Mesh(
+    shadowGeo,
+    new THREE.MeshBasicMaterial({ color: 0x5c6c80, transparent: true, opacity: 0.22, depthWrite: false }),
+  );
+  shadow.frustumCulled = false;
+  return { root, spin, bank, bones, rest, scarf, skiL, skiR, poleL, poleR, shadow, mixer, rigged: true };
+}
+
+export function createSkier(scene, gltf) {
+  const mesh = gltf ? buildRigged(gltf) : buildSkier();
   scene.add(mesh.root);
   scene.add(mesh.shadow);
   const rider = {
@@ -156,6 +259,13 @@ export function createSkier(scene) {
     steerSm += (steer - steerSm) * (1 - Math.exp(-8 * dt));
     tuckSm += ((tuck ? 1 : 0) - tuckSm) * (1 - Math.exp(-6 * dt));
     const air = airborne ? 1 : 0;
+    if (mesh.rigged) {
+      mesh.mixer?.update(dt);
+      mesh.bank.rotation.z = steerSm * 0.35;
+      mesh.scarf.rotation.z = Math.sin(time * 7) * 0.45 + steerSm * 0.2;
+      mesh.scarf.rotation.x = Math.sin(time * 9) * 0.12;
+      return;
+    }
     mesh.bank.rotation.z = steerSm * 0.52;
     mesh.bank.rotation.x = tuckSm * 0.08;
     mesh.hips.position.y = Math.sin(time * Math.min(rider.speed, 16) * 0.45) * 0.02 - tuckSm * 0.08;

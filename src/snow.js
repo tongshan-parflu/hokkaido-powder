@@ -8,7 +8,7 @@ function makePoints(count, size, attenuation, opacity) {
   attr.setUsage(THREE.DynamicDrawUsage);
   geo.setAttribute('position', attr);
   const mat = new THREE.PointsMaterial({
-    color: 0xffffff,
+    color: 0xfff4ea,
     size,
     map: puffTexture(),
     transparent: true,
@@ -16,6 +16,7 @@ function makePoints(count, size, attenuation, opacity) {
     depthWrite: false,
     sizeAttenuation: attenuation,
     fog: false,
+    blending: THREE.NormalBlending,
   });
   const points = new THREE.Points(geo, mat);
   points.frustumCulled = false;
@@ -40,7 +41,7 @@ export function createEffects(scene) {
   const flakeOffset = new THREE.Vector3();
 
   const sprayCount = 360;
-  const spray = makePoints(sprayCount, 0.62, true, 0.8);
+  const spray = makePoints(sprayCount, 1.05, true, 0.82);
   scene.add(spray.points);
   const pool = [];
   for (let i = 0; i < sprayCount; i++) pool.push({ x: 0, y: -500, z: 0, vx: 0, vy: 0, vz: 0, life: 0 });

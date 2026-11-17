@@ -16,6 +16,7 @@ import { createPipeline } from './render.js';
 import { createSkier } from './skier.js';
 import { createTerrain } from './terrain.js';
 import { createWorld } from './world.js';
+import { loadAssets } from './models.js';
 
 const BEST_KEY = 'hokkaido-powder-best';
 
@@ -58,7 +59,7 @@ const env = { height: terrainHeight, collide };
 const combo = { value: 0 };
 
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(42, 1, 0.15, 12000);
+const camera = new THREE.PerspectiveCamera(32, 1, 0.2, 14000);
 const desiredPos = new THREE.Vector3();
 const desiredLook = new THREE.Vector3();
 const camPos = new THREE.Vector3();
@@ -75,10 +76,9 @@ renderer.domElement.setAttribute('role', 'application');
 renderer.domElement.setAttribute('aria-label', '北海道粉雪滑行');
 document.body.prepend(renderer.domElement);
 
-createTerrain(scene);
-const world = createWorld(scene, course);
-const effects = createEffects(scene);
-const skier = createSkier(scene);
+let world = null;
+let effects = null;
+let skier = null;
 
 let mode = 'menu';
 let elapsed = 0;
@@ -194,17 +194,17 @@ function desiredCamera(drift, extraUp) {
   const aheadZ = Math.cos(rider.heading);
   const rx = Math.cos(rider.heading);
   const rz = -Math.sin(rider.heading);
-  const back = 5.4 + Math.min(rider.speed, 30) * 0.02;
-  const up = 1.8 + extraUp + Math.min(rider.speed, 30) * 0.01;
+  const back = 7.4 + Math.min(rider.speed, 30) * 0.02;
+  const up = 2.7 + extraUp;
   desiredPos.set(
-    rider.x - aheadX * back + rx * (0.9 + drift),
+    rider.x - aheadX * back + rx * (1.35 + drift),
     rider.y + up,
-    rider.z - aheadZ * back + rz * (0.9 + drift),
+    rider.z - aheadZ * back + rz * (1.35 + drift),
   );
   const floorY = terrainHeight(desiredPos.x, desiredPos.z) + 1.45;
   if (desiredPos.y < floorY) desiredPos.y = floorY;
-  const look = 8 + Math.min(rider.speed, 32) * 0.16;
-  desiredLook.set(rider.x + aheadX * look, rider.y + 1.05, rider.z + aheadZ * look);
+  const look = 26 + Math.min(rider.speed, 32) * 0.2;
+  desiredLook.set(rider.x + aheadX * look, rider.y - 1.4, rider.z + aheadZ * look);
 }
 
 function updateCamera(dt, drift, extraUp) {
@@ -221,7 +221,7 @@ function updateCamera(dt, drift, extraUp) {
   camera.position.copy(camPos);
   camera.lookAt(lookAt);
   const tuck = mode === 'play' && keys.up && !keys.down;
-  const targetFov = 42 + Math.min(skier.rider.speed, 32) * 0.22 + (tuck ? 5 : 0);
+  const targetFov = 32 + Math.min(skier.rider.speed, 32) * 0.18 + (tuck ? 4 : 0);
   if (Math.abs(camera.fov - targetFov) > 0.05) {
     camera.fov += (targetFov - camera.fov) * (1 - Math.exp(-4 * dt));
     camera.updateProjectionMatrix();
@@ -255,6 +255,7 @@ function pushTrack() {
 }
 
 function beginRun() {
+  if (!skier || !world || !effects) return;
   if (mode === 'play' || mode === 'crash' || mode === 'finishwait') return;
   resetCourse(course);
   world.reset();
@@ -360,7 +361,7 @@ function step(dt) {
         score += ev.points;
         popup(ev.type === 'fox' ? `北狐 +${ev.points}` : `雪花 +${ev.points}`);
       }
-      const n = Math.max(1, Math.round(dt * 60 * (rider.speed > 8 ? 3 : 1)));
+      const n = Math.max(2, Math.round(dt * 60 * (rider.speed > 8 ? 5 : 2)));
       if (rider.onGround && rider.speed > 7) {
         sprayFrom(-1, n);
         sprayFrom(1, n);
@@ -524,16 +525,13 @@ document.getElementById('btn-jump').addEventListener('pointerdown', (e) => {
 });
 
 showBest();
-skier.reset();
-prevX = skier.rider.x;
-prevZ = skier.rider.z;
 document.body.dataset.mode = 'menu';
-updateCamera(0.016, 0, 0.85);
-draw();
 
 let last = performance.now();
 let accumulator = 0;
+let booted = false;
 function frame(now) {
+  if (!booted) return;
   const frameDt = Math.min(0.25, Math.max(0.001, (now - last) / 1000));
   last = now;
   accumulator += frameDt;
@@ -548,4 +546,23 @@ function frame(now) {
   draw();
   requestAnimationFrame(frame);
 }
-requestAnimationFrame(frame);
+
+loadAssets()
+  .then((assets) => {
+    createTerrain(scene);
+    world = createWorld(scene, course, assets);
+    effects = createEffects(scene);
+    skier = createSkier(scene, assets.skier);
+    skier.reset();
+    prevX = skier.rider.x;
+    prevZ = skier.rider.z;
+    updateCamera(0.016, 0, 0.85);
+    draw();
+    booted = true;
+    last = performance.now();
+    requestAnimationFrame(frame);
+  })
+  .catch((error) => {
+    console.error(error);
+    fail('场景资源加载失败');
+  });
