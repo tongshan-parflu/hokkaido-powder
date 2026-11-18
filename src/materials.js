@@ -48,7 +48,7 @@ export function createSnowMaterial() {
         {
           vec2 cell = floor(vSnowWorld.xz * 6.0);
           float n = fract(sin(dot(cell, vec2(127.1, 311.7))) * 43758.5453);
-          float glint = smoothstep(0.988, 0.999, n);
+          float glint = smoothstep(0.965, 0.995, n);
           vec3 viewDir = normalize(cameraPosition - vSnowWorld);
           float spec = pow(max(dot(normalize(vSnowN), normalize(uSunDir + viewDir)), 0.0), 20.0);
           totalEmissiveRadiance += vec3(1.0, 0.95, 0.85) * glint * spec * 0.7;

@@ -131,14 +131,15 @@ function reddenJacket(material) {
     const r = data[i];
     const g = data[i + 1];
     const b = data[i + 2];
-    if (g > r + 12 && g > b + 8) {
-      data[i] = 176;
-      data[i + 1] = 36;
+    const skin = r > 180 && g > 140 && b > 110;
+    if (!skin && g > r + 8 && g > 50) {
+      data[i] = 186;
+      data[i + 1] = 34;
+      data[i + 2] = 38;
+    } else if (!skin && r > 110 && r < 190 && g > 50 && g < 130 && b < 110 && r > b + 15) {
+      data[i] = 196;
+      data[i + 1] = 42;
       data[i + 2] = 40;
-    } else if (r > 80 && r < 200 && g > 40 && g < 130 && b < 90 && r > g + 15 && r > b + 25) {
-      data[i] = 198;
-      data[i + 1] = 48;
-      data[i + 2] = 42;
     }
   }
   ctx.putImageData(pixels, 0, 0);
@@ -153,8 +154,12 @@ function reddenJacket(material) {
 function buildRigged(gltf) {
   const model = cloneAnimated(gltf, 1.72);
   model.traverse((obj) => {
-    if (obj.name && /Knife|Crossbow|Throwable/.test(obj.name)) obj.visible = false;
-    if (obj.isMesh && obj.material?.map?.image) reddenJacket(obj.material);
+    if (obj.name && /Knife|Crossbow|Throwable|Rogue_Cape/.test(obj.name)) obj.visible = false;
+    if (!obj.isMesh || !obj.material) return;
+    const mat = obj.material.clone();
+    obj.material = mat;
+    if (/Body|Arm/.test(obj.name || '')) mat.color.set(0xff2c2a);
+    if (/Leg/.test(obj.name || '')) mat.color.set(0x2a2428);
   });
   const bones = {};
   const rest = {};
@@ -170,16 +175,36 @@ function buildRigged(gltf) {
     side: THREE.DoubleSide,
   });
   const scarf = new THREE.Group();
-  const tail = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 1.7, 1, 8), scarfMat);
-  tail.position.set(0.05, -0.85, -0.25);
-  scarf.add(tail);
+  const segments = [];
+  for (let i = 0; i < 5; i++) {
+    const tail = new THREE.Mesh(new THREE.PlaneGeometry(0.26 - i * 0.03, 0.55), scarfMat);
+    tail.position.set(0.04, -0.15 - i * 0.48, -0.35 - i * 0.15);
+    scarf.add(tail);
+    segments.push(tail);
+  }
   const anchor = bones.chest || bones.spine || model;
   anchor.add(scarf);
-  const mixer = new THREE.AnimationMixer(model);
-  const clip = gltf.animations.find((item) => item.name === 'Sit_Chair_Idle')
-    || gltf.animations.find((item) => item.name === 'Idle');
-  if (clip) mixer.clipAction(clip).play();
-  model.rotation.x = 0.72;
+  const goggle = new THREE.Mesh(
+    new THREE.BoxGeometry(0.16, 0.045, 0.03),
+    new THREE.MeshStandardMaterial({ color: 0xffc56a, emissive: 0xff8a2a, emissiveIntensity: 0.55, roughness: 0.15 }),
+  );
+  goggle.position.set(0, 0.02, 0.16);
+  if (bones.head) bones.head.add(goggle);
+  const poseBone = (name, x, y, z) => {
+    const bone = bones[name];
+    if (!bone) return;
+    bone.rotation.set(x, y, z);
+  };
+  poseBone('upperarm.l', 0.2, 0.2, 1.15);
+  poseBone('upperarm.r', 0.2, -0.2, -1.15);
+  poseBone('lowerarm.l', 0.5, 0, 0.2);
+  poseBone('lowerarm.r', 0.5, 0, -0.2);
+  poseBone('upperleg.l', 0.85, 0.05, 0.08);
+  poseBone('upperleg.r', 0.85, -0.05, -0.08);
+  poseBone('lowerleg.l', -1.15, 0, 0);
+  poseBone('lowerleg.r', -1.15, 0, 0);
+  poseBone('spine', 0.45, 0, 0);
+  model.rotation.x = 0.18;
   const skiMat = new THREE.MeshStandardMaterial({ color: 0x1b2430, roughness: 0.32, metalness: 0.08 });
   const skiGeo = new THREE.BoxGeometry(0.11, 0.025, 1.65);
   const skiL = new THREE.Mesh(skiGeo, skiMat);
@@ -216,7 +241,7 @@ function buildRigged(gltf) {
     new THREE.MeshBasicMaterial({ color: 0x5c6c80, transparent: true, opacity: 0.22, depthWrite: false }),
   );
   shadow.frustumCulled = false;
-  return { root, spin, bank, bones, rest, scarf, skiL, skiR, poleL, poleR, shadow, mixer, rigged: true };
+  return { root, spin, bank, bones, rest, scarf, segments, skiL, skiR, poleL, poleR, shadow, rigged: true };
 }
 
 export function createSkier(scene, gltf) {
@@ -260,10 +285,11 @@ export function createSkier(scene, gltf) {
     tuckSm += ((tuck ? 1 : 0) - tuckSm) * (1 - Math.exp(-6 * dt));
     const air = airborne ? 1 : 0;
     if (mesh.rigged) {
-      mesh.mixer?.update(dt);
-      mesh.bank.rotation.z = steerSm * 0.35;
-      mesh.scarf.rotation.z = Math.sin(time * 7) * 0.45 + steerSm * 0.2;
-      mesh.scarf.rotation.x = Math.sin(time * 9) * 0.12;
+      mesh.bank.rotation.z = steerSm * 0.55;
+      mesh.segments?.forEach((seg, i) => {
+        seg.rotation.z = Math.sin(time * 7 + i) * (0.25 + i * 0.08) + steerSm * 0.15;
+        seg.rotation.x = Math.sin(time * 5 + i * 0.6) * 0.2;
+      });
       return;
     }
     mesh.bank.rotation.z = steerSm * 0.52;

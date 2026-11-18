@@ -67,9 +67,9 @@ export function createEffects(scene) {
   const trail = new THREE.Mesh(
     trailGeo,
     new THREE.MeshBasicMaterial({
-      color: 0xe7eef6,
+      color: 0x8eafd6,
       transparent: true,
-      opacity: 0.32,
+      opacity: 0.55,
       depthWrite: false,
       side: THREE.DoubleSide,
     }),

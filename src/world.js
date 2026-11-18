@@ -71,17 +71,18 @@ function yoteiGeometry(radius, height) {
     }
     for (let ix = 0; ix <= radial; ix++) {
       const ang = (ix / radial) * Math.PI * 2;
-      const gullies = t > 0.18 && t < 0.82 ? Math.sin(ang * 9.0) * 0.055 * r + Math.sin(ang * 3.0) * 0.02 * r : 0;
+      const gullies = t > 0.22 && t < 0.86 ? Math.sin(ang * 8.0) * 0.14 * r : 0;
       const rr = Math.max(0, r + gullies);
       positions.push(Math.cos(ang) * rr, y, Math.sin(ang) * rr);
-      if (t < 0.34) color.copy(forest);
-      else if (t < 0.48) color.copy(forest).lerp(rock, (t - 0.34) / 0.14);
-      else if (t < 0.58) color.copy(rock).lerp(snow, (t - 0.48) / 0.1);
+      if (t < 0.28) color.set(0x163428);
+      else if (t < 0.42) color.set(0x163428).lerp(new THREE.Color(0x5a534c), (t - 0.28) / 0.14);
+      else if (t < 0.52) color.set(0x5a534c).lerp(snow, (t - 0.42) / 0.1);
       else color.copy(snow);
-      if (t > 0.45 && t < 0.84) color.lerp(gully, (0.5 + 0.5 * Math.sin(ang * 9.0)) * 0.28);
-      const light = Math.cos(ang) * 0.9 + 0.08;
-      if (light > 0) color.lerp(new THREE.Color(0xffc4aa), Math.min(0.42, light * 0.5));
-      else color.lerp(new THREE.Color(0x7f9abd), Math.min(0.4, -light * 0.55));
+      const groove = 0.5 + 0.5 * Math.sin(ang * 11.0);
+      if (t > 0.38 && t < 0.9) color.lerp(new THREE.Color(0x7ea4d2), groove * 0.62);
+      const light = Math.cos(ang);
+      if (light > 0.05) color.lerp(new THREE.Color(0xffb088), Math.min(0.55, light * 0.6));
+      else color.lerp(new THREE.Color(0x6d90c4), Math.min(0.5, -light * 0.55));
       colors.push(color.r, color.g, color.b);
     }
   }
@@ -179,11 +180,11 @@ function makeCrane() {
   head.position.set(0, 0.82, 0.78);
   const crown = new THREE.Mesh(new THREE.SphereGeometry(0.045, 6, 6), red);
   crown.position.set(0, 0.9, 0.74);
-  const wingGeo = new THREE.BoxGeometry(1.1, 0.04, 0.38);
+  const wingGeo = new THREE.BoxGeometry(1.8, 0.035, 0.42);
   const wingL = new THREE.Mesh(wingGeo, white);
   const wingR = new THREE.Mesh(wingGeo, white);
-  wingL.position.set(-0.7, 0.08, 0);
-  wingR.position.set(0.7, 0.08, 0);
+  wingL.position.set(-1.05, 0.1, 0);
+  wingR.position.set(1.05, 0.1, 0);
   const tipL = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.03, 0.22), black);
   const tipR = tipL.clone();
   tipL.position.set(-1.2, 0.08, 0.05);
@@ -279,14 +280,14 @@ function cableBetween(a, b, material) {
 
 export function createWorld(scene, course, assets) {
   foxSource = assets?.fox || null;
-  const yoteiH = 1000;
-  const yoteiR = yoteiH * 2;
-  const yoteiX = -140;
-  const yoteiZ = 4600;
-  const foot = 40;
+  const yoteiH = 900;
+  const yoteiR = yoteiH * 1.95;
+  const yoteiX = -40;
+  const yoteiZ = 3900;
+  const foot = 70;
   const yotei = new THREE.Mesh(
     yoteiGeometry(yoteiR, yoteiH),
-    new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.86, metalness: 0 }),
+    new THREE.MeshBasicMaterial({ vertexColors: true }),
   );
   yotei.position.set(yoteiX, foot, yoteiZ);
   scene.add(yotei);
@@ -432,21 +433,20 @@ export function createWorld(scene, course, assets) {
   const chair = buildLift(scene, 17, 58, 780, 86, metal, std(0x243044, 0.5), glass, 0.7);
 
   const lodge = buildLodge(scene);
-  if (assets?.lodge) buildAssetLodge(scene, assets.lodge);
-  else buildVistaLodge(scene);
+  const ryokan = buildAssetLodge(scene);
   const hutLamp = buildHut(scene, 210, 22);
   const cranes = [];
   const craneSpots = [
-    [14, 22, 72],
-    [30, 26, 96],
-    [44, 23, 118],
+    [18, 34, 180],
+    [40, 40, 230],
+    [62, 36, 270],
   ];
   craneSpots.forEach(([dx, up, z], i) => {
     const bird = makeCrane();
     const x = courseCenter(z) + dx;
     bird.userData.phase = i * 0.8;
     bird.userData.anchor = new THREE.Vector3(x, terrainHeight(x, z) + up, z);
-    bird.scale.setScalar(2.2);
+    bird.scale.setScalar(7);
     bird.position.copy(bird.userData.anchor);
     scene.add(bird);
     cranes.push(bird);
@@ -545,9 +545,9 @@ export function createWorld(scene, course, assets) {
         const a = bird.userData.phase;
         const anchor = bird.userData.anchor;
         bird.position.set(
-          anchor.x + Math.sin(time * 0.25 + a) * 6,
-          anchor.y + Math.sin(time * 0.6 + a) * 1.2,
-          anchor.z + time * 0.35,
+          anchor.x + Math.sin(time * 0.12 + a) * 10,
+          anchor.y + Math.sin(time * 0.5 + a) * 2.5,
+          anchor.z + Math.cos(time * 0.08 + a) * 6,
         );
         bird.rotation.y = 0.4;
         const flap = Math.sin(time * 4.2 + a) * 0.55;
@@ -569,6 +569,21 @@ export function createWorld(scene, course, assets) {
         lodge.steamPos[o + 2] = lodge.origin.z + p.z;
       });
       lodge.steamAttr.needsUpdate = true;
+      ryokan.puffs.forEach((p, i) => {
+        p.life -= dt;
+        if (p.life <= 0) {
+          p.life = 1.8 + Math.random();
+          p.y = 0;
+          p.x = (Math.random() - 0.5) * 1.6;
+          p.z = (Math.random() - 0.5) * 1.6;
+        }
+        p.y += dt * 1.1;
+        const o = i * 3;
+        ryokan.steamPos[o] = ryokan.origin.x + p.x + Math.sin(time + i) * 0.15;
+        ryokan.steamPos[o + 1] = ryokan.origin.y + 0.8 + p.y;
+        ryokan.steamPos[o + 2] = ryokan.origin.z + p.z;
+      });
+      ryokan.attr.needsUpdate = true;
       void deer;
     },
     setNight(on) {
@@ -623,15 +638,15 @@ function buildValleyCable(scene) {
     emissiveIntensity: 0.4,
     roughness: 0.16,
   });
-  const z = 360;
-  const yLift = 42;
+  const z = 220;
+  const yLift = 34;
   const points = [];
   for (let i = 0; i <= 5; i++) {
     const x = -40 + i * 28;
     const zz = z + Math.sin(i * 0.7) * 10;
     const base = terrainHeight(x, zz);
     const top = new THREE.Vector3(x, base + yLift, zz);
-    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.26, yLift, 6), metal);
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.55, yLift, 6), metal);
     pole.position.set(x, base + yLift * 0.5, zz);
     pole.castShadow = true;
     scene.add(pole);
@@ -641,10 +656,10 @@ function buildValleyCable(scene) {
   const cabins = [];
   for (let i = 0; i < 5; i++) {
     const cabin = new THREE.Group();
-    const shell = new THREE.Mesh(new THREE.BoxGeometry(3.4, 2.3, 2.6), body);
-    const roof = new THREE.Mesh(new THREE.BoxGeometry(3.7, 0.28, 2.9), std(0xf7f4ee, 0.55));
-    roof.position.y = 1.25;
-    const win = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.85, 2.65), glass);
+    const shell = new THREE.Mesh(new THREE.BoxGeometry(10.2, 6.4, 7.2), body);
+    const roof = new THREE.Mesh(new THREE.BoxGeometry(11, 0.7, 7.8), std(0xf7f4ee, 0.55));
+    roof.position.y = 3.4;
+    const win = new THREE.Mesh(new THREE.BoxGeometry(6.4, 2.2, 7.3), glass);
     win.position.y = 0.28;
     cabin.add(shell, roof, win);
     scene.add(cabin);
@@ -659,31 +674,76 @@ function buildValleyCable(scene) {
         const a = Math.floor(f);
         const b = Math.min(spans, a + 1);
         cabin.position.lerpVectors(points[a], points[b], f - a);
-        cabin.position.y -= 1.8;
+        cabin.position.y -= 4.2;
       });
     },
   };
 }
 
-function buildAssetLodge(scene, parts) {
-  const z = 86;
-  const x = courseCenter(z) + 16;
+function buildAssetLodge(scene) {
+  const z = 62;
+  const x = courseCenter(z) + 14;
   const y = terrainHeight(x, z);
+  const timber = std(0x3a2418, 0.72);
+  const snowMat = std(0xf7f4ee, 0.8);
   const group = new THREE.Group();
   group.position.set(x, y, z);
-  group.rotation.y = Math.PI * 0.85;
-  const add = (src, px, py, pz) => {
-    const piece = src.clone(true);
-    piece.position.set(px, py, pz);
-    group.add(piece);
-  };
-  for (let i = 0; i < 4; i++) {
-    add(i === 1 ? parts.door : i % 2 === 0 ? parts.win : parts.wall, (i - 1.5) * 2.05, 0, 0);
-    add(parts.roof, (i - 1.5) * 2.05, 2.15, 0);
+  group.rotation.y = Math.PI;
+  group.scale.setScalar(1.15);
+  const hall = new THREE.Mesh(new THREE.BoxGeometry(16, 4.6, 8), timber);
+  hall.position.y = 2.3;
+  hall.castShadow = true;
+  const roofL = new THREE.Mesh(new THREE.BoxGeometry(17.5, 0.7, 5.4), snowMat);
+  roofL.position.set(0, 5.3, -1.6);
+  roofL.rotation.x = 0.42;
+  const roofR = roofL.clone();
+  roofR.position.z = 1.6;
+  roofR.rotation.x = -0.42;
+  const ridge = new THREE.Mesh(new THREE.BoxGeometry(17.6, 0.45, 1.1), snowMat);
+  ridge.position.y = 6.15;
+  const windowMat = new THREE.MeshStandardMaterial({
+    color: 0xffe0b0,
+    emissive: 0xff9a32,
+    emissiveIntensity: 1.4,
+    roughness: 0.18,
+  });
+  for (let i = 0; i < 5; i++) {
+    const win = new THREE.Mesh(new THREE.PlaneGeometry(1.35, 1.7), windowMat);
+    win.position.set(-5.2 + i * 2.4, 2.5, 4.05);
+    group.add(win);
   }
-  add(parts.logs, -4.2, 0, 0.4);
-  add(parts.logs, 4.2, 0, 0.4);
-  add(parts.chimney, 2.2, 2.15, 0.2);
+  const lanternMat = new THREE.MeshStandardMaterial({
+    color: 0xffc56a,
+    emissive: 0xff8a1e,
+    emissiveIntensity: 1.6,
+  });
+  for (const side of [-6.2, 6.2]) {
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 2.2, 6), timber);
+    post.position.set(side, 1.1, 4.6);
+    const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.28, 8, 6), lanternMat);
+    lamp.position.set(side, 2.3, 4.6);
+    group.add(post, lamp);
+  }
+  const toriiRed = std(0xd23a2a, 0.45);
+  for (const side of [-1.3, 1.3]) {
+    const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.18, 3.4, 8), toriiRed);
+    pillar.position.set(side, 1.7, 7.2);
+    group.add(pillar);
+  }
+  const beam = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.28, 0.36), toriiRed);
+  beam.position.set(0, 3.15, 7.2);
+  const kasagi = new THREE.Mesh(new THREE.BoxGeometry(4.1, 0.18, 0.5), toriiRed);
+  kasagi.position.set(0, 3.45, 7.2);
+  const rock = std(0x5c564e, 0.9);
+  const bath = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.4, 0.7, 10), rock);
+  bath.position.set(-7.5, 0.35, 2.2);
+  const water = new THREE.Mesh(
+    new THREE.CircleGeometry(1.7, 12),
+    new THREE.MeshStandardMaterial({ color: 0x7eb8c8, roughness: 0.15, metalness: 0.1, emissive: 0x3a6a78, emissiveIntensity: 0.25 }),
+  );
+  water.rotation.x = -Math.PI / 2;
+  water.position.set(-7.5, 0.72, 2.2);
+  group.add(hall, roofL, roofR, ridge, beam, kasagi, bath, water);
   group.traverse((obj) => {
     if (obj.isMesh) {
       obj.castShadow = true;
@@ -691,20 +751,36 @@ function buildAssetLodge(scene, parts) {
     }
   });
   scene.add(group);
-  const glow = new THREE.PointLight(0xffb15a, 3.2, 28, 2);
-  glow.position.set(x - 2, y + 2.4, z + 2);
+  group.updateMatrixWorld(true);
+  const bathAt = new THREE.Vector3();
+  bath.getWorldPosition(bathAt);
+  const glow = new THREE.PointLight(0xffb15a, 6, 36, 2);
+  glow.position.set(x, y + 3, z + 6);
   scene.add(glow);
-  const windowMat = new THREE.MeshStandardMaterial({
-    color: 0xffd7a1,
-    emissive: 0xff9a3c,
-    emissiveIntensity: 1.1,
-    roughness: 0.2,
-  });
-  for (let i = 0; i < 4; i++) {
-    const win = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 1.25), windowMat);
-    win.position.set(x - 1.2 + (i - 1.5) * 1.6, y + 1.7, z + 2.4);
-    scene.add(win);
-  }
+  const steamCount = 40;
+  const steamPos = new Float32Array(steamCount * 3);
+  const steamGeo = new THREE.BufferGeometry();
+  steamGeo.setAttribute('position', new THREE.BufferAttribute(steamPos, 3));
+  const steam = new THREE.Points(
+    steamGeo,
+    new THREE.PointsMaterial({
+      color: 0xfff6ee,
+      size: 1.4,
+      map: puffTexture(),
+      transparent: true,
+      opacity: 0.45,
+      depthWrite: false,
+      sizeAttenuation: true,
+    }),
+  );
+  scene.add(steam);
+  const puffs = Array.from({ length: steamCount }, () => ({
+    life: Math.random() * 2,
+    x: (Math.random() - 0.5) * 1.4,
+    y: Math.random() * 2,
+    z: (Math.random() - 0.5) * 1.4,
+  }));
+  return { steamPos, puffs, origin: bathAt, attr: steamGeo.attributes.position };
 }
 
 function buildVistaLodge(scene) {
