@@ -1,0 +1,12 @@
+{
+  "appId": "com.tongshan.hokkaidoski",
+  "appName": "北海道粉雪",
+  "webDir": "dist",
+  "backgroundColor": "#1b2430",
+  "ios": {
+    "contentInset": "never",
+    "backgroundColor": "#1b2430",
+    "allowsLinkPreview": false,
+    "scrollEnabled": false
+  }
+}

@@ -1,0 +1,29 @@
+name: iOS TestFlight
+
+on:
+  workflow_dispatch:
+
+jobs:
+  testflight:
+    runs-on: macos-15
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install, build, and sync iOS
+        run: |
+          npm ci
+          npm run build
+          npx cap sync ios
+      - name: Install fastlane
+        run: gem install fastlane --no-document
+      - name: Sign with the App Store Connect API key and upload
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
+          ASC_TEAM_ID: ${{ secrets.ASC_TEAM_ID }}
+        run: fastlane ios beta

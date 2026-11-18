@@ -17,6 +17,11 @@ import { createSkier } from './skier.js';
 import { createTerrain } from './terrain.js';
 import { createWorld } from './world.js';
 import { loadAssets } from './models.js';
+import { LEVELS } from './course.js';
+import { bestFor, getSave, isUnlocked, patchSave, recordRun, starsFor } from './save.js';
+import { formatTime, t } from './i18n.js';
+import { playCarve, resumeAudio, setAudio, setWind, stopAudio, unlockAudio } from './audio.js';
+import { autoQuality, bootNative, buzz } from './native.js';
 
 const BEST_KEY = 'hokkaido-powder-best';
 
@@ -149,9 +154,28 @@ function popup(text) {
   setTimeout(() => el.remove(), 880);
 }
 
+let currentLevel = 'green';
+let finishLine = LEVELS.red.finish;
+let tiltBeta = 0;
+let tiltGamma = 0;
+let carveCooldown = 0;
+
+function tiltSteer() {
+  const save = getSave();
+  if (save.controls === 'touch') return 0;
+  const landscape = window.matchMedia('(orientation: landscape)').matches;
+  const raw = landscape ? tiltBeta : tiltGamma;
+  const delta = raw - (save.tiltZero || 0);
+  if (!Number.isFinite(delta)) return 0;
+  return Math.max(-1, Math.min(1, -delta / 24));
+}
+
 function readInput() {
+  const touchSteer = (keys.left ? 1 : 0) - (keys.right ? 1 : 0);
+  const tilt = tiltSteer();
+  const steer = touchSteer !== 0 ? touchSteer : tilt;
   return {
-    steer: (keys.left ? 1 : 0) - (keys.right ? 1 : 0),
+    steer,
     tuck: keys.up,
     brake: keys.down,
     jump: keys.jumpQueued,
@@ -254,9 +278,17 @@ function pushTrack() {
   trailOpen = true;
 }
 
-function beginRun() {
+function beginRun(level = currentLevel) {
   if (!skier || !world || !effects) return;
   if (mode === 'play' || mode === 'crash' || mode === 'finishwait') return;
+  if (!isUnlocked(level)) return;
+  currentLevel = level;
+  const profile = LEVELS[level] || LEVELS.red;
+  finishLine = profile.finish;
+  for (const gate of course.gates) gate.half = profile.gateHalf;
+  env.collide = createCollider(course.obstacles.map((o) => ({ ...o, r: o.r * profile.radiusScale })));
+  pipeline.setNight(profile.night);
+  world.setNight(profile.night);
   resetCourse(course);
   world.reset();
   effects.resetTrail();
@@ -275,6 +307,9 @@ function beginRun() {
   document.body.dataset.mode = 'play';
   screenStart.hidden = true;
   screenEnd.hidden = true;
+  document.getElementById('screen-pause').hidden = true;
+  document.getElementById('screen-settings').hidden = true;
+  document.getElementById('screen-tutorial').hidden = true;
   hud.hidden = false;
   hint.hidden = false;
   hint.classList.remove('hide');
@@ -290,15 +325,29 @@ function showEnd(kind) {
   hint.hidden = true;
   const distance = distanceOf();
   const distanceBonus = Math.floor(distance);
-  const allGates = course.gates.every((g) => g.passed);
+  const relevant = course.gates.filter((g) => g.z <= finishLine + 30);
+  const passed = relevant.filter((g) => g.passed).length;
+  const allGates = passed === relevant.length && relevant.length > 0;
   const perfect = kind === 'finish' && allGates ? SCORE.perfect : 0;
   const total = score + distanceBonus + perfect;
+  const profile = LEVELS[currentLevel] || LEVELS.red;
+  const ratio = relevant.length ? passed / relevant.length : 0;
+  let stars = 0;
+  if (kind === 'finish') {
+    stars = 1;
+    if (ratio >= 0.75) stars = 2;
+    if (ratio >= 0.999 && elapsed <= profile.par) stars = 3;
+  }
+  recordRun(currentLevel, { time: elapsed, stars });
   if (total > best) {
     best = total;
     saveBest(best);
     showBest();
   }
-  endTitle.textContent = kind === 'finish' ? '抵达山脚' : '摔倒了';
+  const lang = getSave().lang;
+  endTitle.textContent = kind === 'finish' ? t(lang, 'finish') : t(lang, 'crash');
+  const starEl = document.getElementById('stars');
+  if (starEl) starEl.textContent = '★★★'.slice(0, stars) + '☆☆☆'.slice(stars);
   endTitle.dataset.kind = kind;
   if (kind === 'finish') {
     endReason.textContent = allGates
@@ -311,16 +360,18 @@ function showEnd(kind) {
   } else {
     endReason.textContent = '白桦和云杉不会让路。';
   }
-  endTotal.textContent = total.toLocaleString('zh-CN');
+  if (endTotal) endTotal.textContent = total.toLocaleString('zh-CN');
   endScore.textContent = score.toLocaleString('zh-CN');
   endDistance.textContent = `${distanceBonus.toLocaleString('zh-CN')} 米`;
   endPerfect.hidden = perfect === 0;
   endPerfect.textContent = `全旗门 +${perfect}`;
-  endGates.textContent = `${course.gates.filter((g) => g.passed).length}/${course.gates.length}`;
+  endGates.textContent = `${passed}/${relevant.length}`;
   endFlakes.textContent = String(course.flakes.filter((f) => f.collected).length);
   endFoxes.textContent = String(course.foxes.filter((f) => f.collected).length);
-  endTime.textContent = formatClockFine(elapsed);
-  endBest.textContent = best.toLocaleString('zh-CN');
+  endTime.textContent = formatTime(elapsed);
+  const saved = bestFor(currentLevel);
+  endBest.textContent = saved ? formatTime(saved.time) : '—';
+  renderCourses();
   screenEnd.hidden = false;
 }
 
@@ -329,6 +380,8 @@ function step(dt) {
   if (menu) {
     skier.idle(dt);
     updateCamera(dt, Math.sin(performance.now() * 0.00025) * 1.15, 0.85);
+  } else if (mode === 'paused') {
+    updateCamera(dt, 0, 0);
   } else if (mode === 'play') {
     elapsed += dt;
     hintTimer -= dt;
@@ -339,7 +392,7 @@ function step(dt) {
     const fromZ = prevZ;
     const events = skier.update(dt, input, env);
     const rider = skier.rider;
-    if (!events.crashed && rider.z >= FINISH_Z) {
+    if (!events.crashed && rider.z >= finishLine) {
       mode = 'finishwait';
       finishTimer = 0.7;
       effects.burst(rider.x, rider.y + 1, rider.z, 28);
@@ -348,14 +401,22 @@ function step(dt) {
       crashTimer = 1.15;
       crashKind = events.crashed;
       effects.burst(rider.x, rider.y + 0.6, rider.z, 36);
+      buzz('crash');
     } else {
       const gateEvents = crossGates(course.gates, fromX, fromZ, rider.x, rider.z, combo);
       for (const ev of gateEvents) {
         if (ev.type === 'gate') {
           score += ev.points;
           popup(ev.mult > 1 ? `旗门 +${ev.points}  连击` : `旗门 +${ev.points}`);
+          buzz('gate');
         }
       }
+      carveCooldown -= dt;
+      if (Math.abs(input.steer) > 0.35 && rider.speed > 8 && carveCooldown <= 0) {
+        playCarve();
+        carveCooldown = 0.28;
+      }
+      setWind(rider.speed / 28);
       const picks = collectPickups(course, rider.x, rider.z);
       for (const ev of picks) {
         score += ev.points;
@@ -370,7 +431,10 @@ function step(dt) {
         if (events.spray === 'right' || events.spray === 'both') sprayFrom(1, n);
       }
       if (events.jumped) effects.burst(rider.x, rider.y, rider.z, 10);
-      if (events.landed) effects.burst(rider.x, rider.y + 0.2, rider.z, 16);
+      if (events.landed) {
+        effects.burst(rider.x, rider.y + 0.2, rider.z, 16);
+        buzz('land');
+      }
       if (rider.onGround) pushTrack();
       else if (trailOpen) {
         effects.breakTrail();
@@ -412,9 +476,13 @@ window.addEventListener('keydown', (e) => {
   if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) {
     e.preventDefault();
   }
-  if (e.code === 'Enter' || (e.code === 'Space' && mode !== 'play' && mode !== 'crash' && mode !== 'finishwait')) {
+  if (e.code === 'Escape' && mode === 'play') {
+    pauseGame();
+    return;
+  }
+  if (e.code === 'Enter' || (e.code === 'Space' && mode !== 'play' && mode !== 'crash' && mode !== 'finishwait' && mode !== 'paused')) {
     e.preventDefault();
-    if (mode === 'menu' || mode === 'end') beginRun();
+    if (mode === 'end') beginRun();
     return;
   }
   if ((e.code === 'KeyR' || e.code === 'Enter') && mode === 'end') {
@@ -478,30 +546,41 @@ function cycleQuality() {
   const el = document.getElementById('btn-quality');
   if (el) el.textContent = `画质 · ${qualityNames[qualityLevel]}`;
 }
-document.getElementById('btn-quality')?.addEventListener('click', (e) => {
-  e.stopPropagation();
-  cycleQuality();
-});
-document.getElementById('btn-snow')?.addEventListener('click', (e) => {
-  e.stopPropagation();
-  effects.setSnowing(!effects.snowing);
-  e.currentTarget.textContent = effects.snowing ? '停雪' : '降雪';
-});
-document.getElementById('btn-night')?.addEventListener('click', (e) => {
-  e.stopPropagation();
-  const next = document.body.dataset.night !== '1';
-  pipeline.setNight(next);
-  world.setNight(next);
-  e.currentTarget.textContent = next ? '白天' : '夜间';
-});
-document.getElementById('btn-start').addEventListener('click', () => beginRun());
 document.getElementById('btn-again').addEventListener('click', () => {
   if (mode === 'end') beginRun();
 });
-
-renderer.domElement.addEventListener('pointerdown', () => {
-  if (mode === 'menu') beginRun();
+document.getElementById('btn-end-menu').addEventListener('click', () => showMenu());
+document.getElementById('btn-pause').addEventListener('click', () => pauseGame());
+document.getElementById('btn-resume').addEventListener('click', () => resumeGame());
+document.getElementById('btn-retry').addEventListener('click', () => beginRun());
+document.getElementById('btn-quit').addEventListener('click', () => showMenu());
+document.getElementById('btn-settings').addEventListener('click', () => openSettings());
+document.getElementById('btn-settings-close').addEventListener('click', () => closeSettings());
+document.getElementById('btn-how').addEventListener('click', () => {
+  document.getElementById('screen-tutorial').hidden = false;
 });
+document.getElementById('btn-tutorial').addEventListener('click', () => {
+  patchSave({ tutorialDone: true });
+  document.getElementById('screen-tutorial').hidden = true;
+  const pending = document.body.dataset.pendingLevel;
+  if (pending) beginRun(pending);
+});
+document.getElementById('btn-lang').addEventListener('click', () => {
+  patchSave({ lang: getSave().lang === 'zh' ? 'en' : 'zh' });
+  applyLang();
+});
+document.getElementById('btn-calibrate').addEventListener('click', () => {
+  const landscape = window.matchMedia('(orientation: landscape)').matches;
+  const zero = landscape ? tiltBeta : tiltGamma;
+  patchSave({ tiltZero: zero });
+  const note = document.getElementById('cal-note');
+  note.hidden = false;
+  note.textContent = t(getSave().lang, 'calibrated');
+  unlockAudio();
+});
+for (const id of ['set-sound', 'set-music', 'set-haptics', 'set-controls', 'set-quality']) {
+  document.getElementById(id).addEventListener('click', () => cycleSetting(id));
+}
 
 for (const el of document.querySelectorAll('[data-hold]')) {
   const name = el.dataset.hold;
@@ -522,6 +601,183 @@ for (const el of document.querySelectorAll('[data-hold]')) {
 document.getElementById('btn-jump').addEventListener('pointerdown', (e) => {
   e.preventDefault();
   if (mode === 'play') keys.jumpQueued = true;
+});
+
+function lang() {
+  return getSave().lang || 'zh';
+}
+
+function applyLang() {
+  const code = lang();
+  document.documentElement.lang = code === 'zh' ? 'zh-CN' : 'en';
+  document.title = t(code, 'title');
+  for (const el of document.querySelectorAll('[data-i18n]')) {
+    el.textContent = t(code, el.dataset.i18n);
+  }
+  const langBtn = document.getElementById('btn-lang');
+  if (langBtn) langBtn.textContent = code === 'zh' ? 'English' : '中文';
+  refreshSettingLabels();
+  renderCourses();
+}
+
+function refreshSettingLabels() {
+  const save = getSave();
+  const code = lang();
+  const onOff = (v) => (v ? t(code, 'on') : t(code, 'off'));
+  document.getElementById('set-sound').textContent = onOff(save.sound);
+  document.getElementById('set-music').textContent = onOff(save.music);
+  document.getElementById('set-haptics').textContent = onOff(save.haptics);
+  document.getElementById('set-controls').textContent = t(code, save.controls);
+  const q = save.quality === 'auto' ? 'auto' : save.quality;
+  document.getElementById('set-quality').textContent = t(code, q);
+  document.body.dataset.controls = save.controls;
+  setAudio({ sound: save.sound, music: save.music });
+}
+
+function renderCourses() {
+  const root = document.getElementById('course-list');
+  if (!root) return;
+  const code = lang();
+  root.replaceChildren();
+  for (const id of ['green', 'red', 'black', 'night']) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'course';
+    const open = isUnlocked(id);
+    btn.disabled = !open;
+    const bestTime = bestFor(id);
+    const earned = starsFor(id);
+    const stars = `${'★'.repeat(earned)}${'☆'.repeat(3 - earned)}`;
+    const meta = open
+      ? `${stars}  ${bestTime ? `${t(code, 'best')} ${formatTime(bestTime.time)}` : t(code, 'none')}`
+      : t(code, 'locked');
+    btn.innerHTML = `<span><b>${t(code, id)}</b><small>${meta}</small></span>`;
+    btn.addEventListener('click', () => requestRun(id));
+    root.append(btn);
+  }
+}
+
+function requestRun(level) {
+  unlockAudio();
+  const go = () => {
+    if (!getSave().tutorialDone) {
+      document.body.dataset.pendingLevel = level;
+      document.getElementById('screen-tutorial').hidden = false;
+      return;
+    }
+    beginRun(level);
+  };
+  const ask = window.DeviceOrientationEvent && typeof window.DeviceOrientationEvent.requestPermission === 'function';
+  if (ask) window.DeviceOrientationEvent.requestPermission().then(go).catch(go);
+  else go();
+}
+
+function showMenu() {
+  mode = 'menu';
+  document.body.dataset.mode = 'menu';
+  hud.hidden = true;
+  hint.hidden = true;
+  screenEnd.hidden = true;
+  document.getElementById('screen-pause').hidden = true;
+  document.getElementById('screen-settings').hidden = true;
+  document.getElementById('screen-tutorial').hidden = true;
+  screenStart.hidden = false;
+  renderCourses();
+}
+
+function pauseGame() {
+  if (mode !== 'play') return;
+  mode = 'paused';
+  document.body.dataset.mode = 'paused';
+  document.getElementById('screen-pause').hidden = false;
+  stopAudio();
+}
+
+function resumeGame() {
+  if (mode !== 'paused') return;
+  mode = 'play';
+  document.body.dataset.mode = 'play';
+  document.getElementById('screen-pause').hidden = true;
+  resumeAudio();
+}
+
+function openSettings() {
+  refreshSettingLabels();
+  document.getElementById('screen-settings').hidden = false;
+}
+
+function closeSettings() {
+  document.getElementById('screen-settings').hidden = true;
+}
+
+function cycleSetting(id) {
+  const save = getSave();
+  if (id === 'set-sound') patchSave({ sound: !save.sound });
+  if (id === 'set-music') patchSave({ music: !save.music });
+  if (id === 'set-haptics') patchSave({ haptics: !save.haptics });
+  if (id === 'set-controls') {
+    const order = ['both', 'tilt', 'touch'];
+    patchSave({ controls: order[(order.indexOf(save.controls) + 1) % order.length] });
+  }
+  if (id === 'set-quality') {
+    const order = ['auto', 'high', 'medium', 'low'];
+    const next = order[(order.indexOf(save.quality) + 1) % order.length];
+    patchSave({ quality: next });
+    pipeline.setQuality(next === 'auto' ? autoQuality() : next);
+  }
+  refreshSettingLabels();
+  unlockAudio();
+}
+
+function syncChrome() {
+  const coarse = window.matchMedia('(pointer: coarse)').matches;
+  document.body.classList.toggle('is-touch', coarse);
+  const portrait = window.matchMedia('(orientation: portrait)').matches;
+  document.body.classList.toggle('portrait', coarse && portrait);
+}
+
+window.addEventListener('deviceorientation', (event) => {
+  if (event.beta != null) tiltBeta = event.beta;
+  if (event.gamma != null) tiltGamma = event.gamma;
+});
+window.addEventListener('orientationchange', syncChrome);
+window.matchMedia('(orientation: portrait)').addEventListener('change', syncChrome);
+
+for (const zone of [document.getElementById('zone-left'), document.getElementById('zone-right')]) {
+  const name = zone.id === 'zone-left' ? 'left' : 'right';
+  zone.addEventListener('pointerdown', (event) => {
+    event.preventDefault();
+    if (getSave().controls === 'tilt') return;
+    keys[name] = true;
+  });
+  zone.addEventListener('pointerup', () => { keys[name] = false; });
+  zone.addEventListener('pointercancel', () => { keys[name] = false; });
+  zone.addEventListener('pointerleave', () => { keys[name] = false; });
+}
+
+document.getElementById('context-restore').addEventListener('click', () => {
+  document.getElementById('context-restore').hidden = true;
+  if (mode === 'paused') resumeGame();
+});
+renderer.domElement.addEventListener('webglcontextlost', (event) => {
+  event.preventDefault();
+  if (mode === 'play') pauseGame();
+  document.getElementById('context-restore').hidden = false;
+});
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    if (mode === 'play') pauseGame();
+    stopAudio();
+  } else resumeAudio();
+});
+
+syncChrome();
+applyLang();
+pipeline.setQuality(getSave().quality === 'auto' ? autoQuality() : getSave().quality);
+bootNative((active) => {
+  if (!active && mode === 'play') pauseGame();
+  if (active) resumeAudio();
+  else stopAudio();
 });
 
 showBest();

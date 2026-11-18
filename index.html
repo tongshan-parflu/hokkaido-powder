@@ -14,21 +14,22 @@
   </head>
   <body>
     <div id="hud" hidden>
+      <button id="btn-pause" class="icon-btn" type="button" data-i18n="pause">暂停</button>
       <div class="stats">
         <div class="stat">
-          <span>速度</span>
+          <span data-i18n="speed">速度</span>
           <div class="stat-value"><strong id="speed">0</strong><small>km/h</small></div>
         </div>
         <div class="stat">
-          <span>距离</span>
+          <span data-i18n="distance">距离</span>
           <div class="stat-value"><strong id="distance">0</strong><small>m</small></div>
         </div>
         <div class="stat">
-          <span>得分</span>
+          <span data-i18n="score">得分</span>
           <div class="stat-value"><strong id="score">0</strong></div>
         </div>
         <div class="stat">
-          <span>时间</span>
+          <span data-i18n="time">时间</span>
           <div class="stat-value"><strong id="time">0:00</strong></div>
         </div>
       </div>
@@ -48,37 +49,70 @@
       <div class="panel">
         <div class="panel-top">
           <div>
-            <p class="eyebrow">二世谷 · 富良野</p>
-            <h1>北海道粉雪滑行</h1>
-            <p class="lede">穿过白桦林，把羊蹄山留在身后。</p>
+            <p class="eyebrow" data-i18n="eyebrow">二世谷 · 富良野</p>
+            <h1 data-i18n="title">北海道粉雪滑行</h1>
+            <p class="lede" data-i18n="lede">穿过白桦林，把羊蹄山留在身后。</p>
           </div>
           <div class="seal" aria-hidden="true">粉雪</div>
         </div>
+        <div id="course-list" class="courses"></div>
         <div class="actions">
-          <button id="btn-start" class="primary" type="button">开始滑行</button>
-          <button id="btn-night" class="ghost" type="button">夜间</button>
-          <button id="btn-snow" class="ghost" type="button">降雪</button>
-          <button id="btn-quality" class="ghost" type="button">画质 · 细腻</button>
-          <p id="best-start" class="best" hidden>最高分 <b id="best-start-n">0</b></p>
+          <button id="btn-settings" class="ghost" type="button" data-i18n="settings">设置</button>
+          <button id="btn-how" class="ghost" type="button" data-i18n="how">怎么滑</button>
+          <button id="btn-lang" class="ghost" type="button">English</button>
         </div>
-        <ul class="controls">
+        <ul class="controls keys-only">
           <li><span class="keys"><kbd>A</kbd><kbd>←</kbd></span>左转</li>
           <li><span class="keys"><kbd>D</kbd><kbd>→</kbd></span>右转</li>
           <li><span class="keys"><kbd>W</kbd><kbd>↑</kbd></span>俯身加速</li>
           <li><span class="keys"><kbd>S</kbd><kbd>↓</kbd></span>刹车</li>
           <li><span class="keys"><kbd>空格</kbd></span>跳跃</li>
         </ul>
-        <p class="footnote">穿过红白旗门 · 收集雪花与北狐 · 羊蹄山在河谷对面 · N 切换夜间</p>
+        <p class="footnote keys-only">穿过红白旗门 · 收集雪花与北狐 · N 夜间 · M 降雪 · Esc 暂停</p>
         <p id="gl-error" class="error" hidden></p>
       </div>
     </section>
+
+    <section id="screen-settings" class="screen center" hidden>
+      <div class="card">
+        <h2 data-i18n="settings">设置</h2>
+        <div class="setting"><span data-i18n="sound">音效</span><button id="set-sound" type="button"></button></div>
+        <div class="setting"><span data-i18n="music">音乐</span><button id="set-music" type="button"></button></div>
+        <div class="setting"><span data-i18n="haptics">震动</span><button id="set-haptics" type="button"></button></div>
+        <div class="setting"><span data-i18n="controls">操控</span><button id="set-controls" type="button"></button></div>
+        <div class="setting"><span data-i18n="quality">画质</span><button id="set-quality" type="button"></button></div>
+        <button id="btn-calibrate" class="ghost" type="button" data-i18n="calibrate">校准水平</button>
+        <p id="cal-note" class="footnote" hidden></p>
+        <button id="btn-settings-close" class="primary" type="button" data-i18n="menu">返回菜单</button>
+      </div>
+    </section>
+
+    <section id="screen-pause" class="screen center" hidden>
+      <div class="card">
+        <h2 data-i18n="pause">暂停</h2>
+        <button id="btn-resume" class="primary" type="button" data-i18n="resume">继续</button>
+        <button id="btn-retry" class="ghost" type="button" data-i18n="restart">重滑这条</button>
+        <button id="btn-quit" class="ghost" type="button" data-i18n="menu">返回菜单</button>
+      </div>
+    </section>
+
+    <section id="screen-tutorial" class="screen center" hidden>
+      <div class="card">
+        <h2 data-i18n="tutorialTitle">第一次上雪</h2>
+        <p data-i18n="tutorialBody">横握手机。倾斜机身转弯，或点左右雪面。下方三个键是俯身、刹车和跳跃。穿过红白旗门得分。</p>
+        <button id="btn-tutorial" class="primary" type="button" data-i18n="tutorialGo">开始</button>
+      </div>
+    </section>
+
+    <div id="rotate" data-i18n="rotate">请把手机横过来</div>
 
     <section id="screen-end" class="screen center" hidden>
       <div class="card">
         <p class="eyebrow">羊蹄下行</p>
         <h2 id="end-title">摔倒了</h2>
+        <p id="stars" class="stars" aria-label="stars">☆☆☆</p>
         <p id="end-reason"></p>
-        <div class="total"><span>总分</span><strong id="end-total">0</strong></div>
+        <div class="total"><span data-i18n="time">用时</span><strong id="end-time">0:00.0</strong></div>
         <p id="end-perfect" class="perfect" hidden></p>
         <dl class="results">
           <div><dt>收集得分</dt><dd id="end-score">0</dd></div>
@@ -86,11 +120,10 @@
           <div><dt>旗门</dt><dd id="end-gates">0/16</dd></div>
           <div><dt>雪花</dt><dd id="end-flakes">0</dd></div>
           <div><dt>北狐</dt><dd id="end-foxes">0</dd></div>
-          <div><dt>用时</dt><dd id="end-time">0:00.0</dd></div>
         </dl>
-        <p class="best">最高分 <b id="end-best">0</b></p>
-        <button id="btn-again" class="primary" type="button">再滑一次</button>
-        <p class="footnote">Enter 或 R 重新出发</p>
+        <p class="best"><span data-i18n="best">最佳</span> <b id="end-best">—</b></p>
+        <button id="btn-again" class="primary" type="button" data-i18n="again">再滑一次</button>
+        <button id="btn-end-menu" class="ghost" type="button" data-i18n="menu">返回菜单</button>
       </div>
     </section>
 
@@ -98,16 +131,15 @@
     <div id="vignette"></div>
 
     <div id="touch">
-      <div class="touch-cluster">
-        <button type="button" data-hold="left">左转</button>
-        <button type="button" data-hold="right">右转</button>
-      </div>
-      <div class="touch-cluster">
-        <button type="button" data-hold="down">刹车</button>
-        <button type="button" data-hold="up">俯身</button>
-        <button id="btn-jump" class="jump" type="button">跳跃</button>
+      <div id="zone-left" class="steer-zone"></div>
+      <div id="zone-right" class="steer-zone"></div>
+      <div class="touch-cluster actions-touch">
+        <button type="button" data-hold="up" data-i18n="tuck">俯身</button>
+        <button type="button" data-hold="down" data-i18n="brake">刹车</button>
+        <button id="btn-jump" class="jump" type="button" data-i18n="jump">跳跃</button>
       </div>
     </div>
+    <button id="context-restore" class="screen center" type="button" hidden data-i18n="context">画面中断了。点这里恢复。</button>
 
     <noscript>需要启用 JavaScript 才能在粉雪里滑行。</noscript>
     <script type="module" src="/src/main.js"></script>

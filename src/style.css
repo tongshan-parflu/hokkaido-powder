@@ -43,9 +43,9 @@ canvas {
 
 #hud {
   position: fixed;
-  top: 16px;
-  left: 16px;
-  right: 16px;
+  top: calc(12px + env(safe-area-inset-top));
+  left: calc(12px + env(safe-area-inset-left));
+  right: calc(12px + env(safe-area-inset-right));
   z-index: 2;
   display: flex;
   justify-content: space-between;
@@ -382,14 +382,75 @@ kbd {
 #touch {
   display: none;
   position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 10px;
+  inset: 0;
   z-index: 5;
-  padding: 0 12px calc(8px + env(safe-area-inset-bottom));
-  justify-content: space-between;
-  gap: 12px;
   pointer-events: none;
+}
+
+.steer-zone {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 30%;
+  pointer-events: auto;
+}
+#zone-left { left: 0; }
+#zone-right { right: 0; }
+
+.actions-touch {
+  position: absolute;
+  right: calc(16px + env(safe-area-inset-right));
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  left: auto;
+}
+
+body[data-controls="tilt"] .steer-zone { pointer-events: none; }
+body.is-touch .keys-only { display: none !important; }
+body.is-touch[data-mode="play"] #hint { display: none !important; }
+
+#rotate {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: none;
+  place-items: center;
+  background: #1b2430;
+  color: #fff8f2;
+  font-size: 22px;
+}
+body.is-touch.portrait #rotate { display: grid; }
+
+.courses { display: grid; gap: 8px; margin: 12px 0; }
+.course {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--line);
+  background: rgba(255,255,255,0.55);
+  border-radius: 14px;
+  padding: 10px 12px;
+  font: inherit;
+  color: inherit;
+}
+.course[disabled] { opacity: 0.45; }
+.course b { display: block; }
+.course small { color: var(--muted); }
+.stars { letter-spacing: 0.2em; color: #c47a2a; font-size: 22px; margin: 0; }
+.setting { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 8px 0; }
+.icon-btn {
+  pointer-events: auto;
+  border: none;
+  border-radius: 999px;
+  padding: 8px 12px;
+  background: rgba(255,250,244,0.8);
+  font: inherit;
+}
+
+#touch {
+  padding: 0;
 }
 
 .touch-cluster { display: flex; gap: 8px; pointer-events: auto; }

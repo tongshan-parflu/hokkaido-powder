@@ -243,6 +243,14 @@ export function generateCourse() {
   return { gates, trees, rocks, obstacles, flakes, foxes };
 }
 
+/** Difficulty overlays. Default generateCourse() stays the red run so the sim is unchanged. */
+export const LEVELS = {
+  green: { id: 'green', finish: 1280, gateHalf: 5.6, radiusScale: 0.62, night: false, par: 62, order: 0 },
+  red: { id: 'red', finish: FINISH_Z, gateHalf: 3.9, radiusScale: 1, night: false, par: 88, order: 1 },
+  black: { id: 'black', finish: FINISH_Z, gateHalf: 2.65, radiusScale: 1.15, night: false, par: 96, order: 2 },
+  night: { id: 'night', finish: FINISH_Z, gateHalf: 3.6, radiusScale: 1, night: true, par: 100, order: 3 },
+};
+
 export function resetCourse(course) {
   for (const g of course.gates) {
     g.passed = false;

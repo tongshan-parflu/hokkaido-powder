@@ -199,8 +199,9 @@ export function createPipeline(scene, camera) {
   function resize(width, height) {
     const high = quality === 'high';
     const low = quality === 'low';
-    const pr = low ? 1 : high ? 1.5 : 1.25;
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, pr));
+    const mobile = window.matchMedia('(pointer: coarse)').matches;
+    const pr = low ? 1 : high ? (mobile ? 1.5 : 1.75) : (mobile ? 1.25 : 1.5);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, pr, mobile ? 1.5 : 2));
     renderer.setSize(width, height);
     composer.setSize(width, height);
     const scale = high ? 1.4 : 2;
