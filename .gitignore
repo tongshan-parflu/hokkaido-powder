@@ -3,3 +3,29 @@ dist
 .DS_Store
 *.log
 .vite
+
+# Capacitor / Xcode generated output
+ios/App/Pods
+ios/App/build
+ios/App/output
+ios/App/DerivedData
+ios/DerivedData
+ios/App/App/public
+
+# Secrets. Never commit signing keys or local env files.
+.env
+.env.*
+!.env.example
+*.p8
+AuthKey_*.p8
+*.p12
+*.cer
+*.mobileprovision
+*.provisionprofile
+*.keystore
+secrets/
+credentials.json
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/test_output
+fastlane/.env
