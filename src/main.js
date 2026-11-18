@@ -194,8 +194,8 @@ function desiredCamera(drift, extraUp) {
   const aheadZ = Math.cos(rider.heading);
   const rx = Math.cos(rider.heading);
   const rz = -Math.sin(rider.heading);
-  const back = 7.4 + Math.min(rider.speed, 30) * 0.02;
-  const up = 2.7 + extraUp;
+  const back = 5.8 + Math.min(rider.speed, 30) * 0.02;
+  const up = 2.15 + extraUp;
   desiredPos.set(
     rider.x - aheadX * back + rx * (1.35 + drift),
     rider.y + up,

@@ -146,7 +146,7 @@ export function createPipeline(scene, camera) {
   sky.visible = true;
   scene.add(sky);
 
-  new RGBELoader().load('/assets/sunset.hdr', (hdr) => {
+  new RGBELoader().load(`${import.meta.env.BASE_URL}assets/sunset.hdr`, (hdr) => {
     hdr.mapping = THREE.EquirectangularReflectionMapping;
     const pmrem = new THREE.PMREMGenerator(renderer);
     scene.environment = pmrem.fromEquirectangular(hdr).texture;

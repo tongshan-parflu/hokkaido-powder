@@ -29,25 +29,25 @@ export function applySnowCover(source, amount = 0.9) {
 }
 
 function load(url) {
-  return loader.loadAsync(url);
+  return loader.loadAsync(`${import.meta.env.BASE_URL}${url}`);
 }
 
 export function loadAssets() {
   return Promise.all([
-    load('/models/pines/Pine_1.gltf'),
-    load('/models/pines/Pine_2.gltf'),
-    load('/models/pines/Pine_3.gltf'),
-    load('/models/trees/tree-snow-a.glb'),
-    load('/models/trees/tree-snow-b.glb'),
-    load('/models/trees/tree-snow-c.glb'),
-    load('/models/Fox.glb'),
-    load('/models/Rogue.glb'),
-    load('/models/lodge/cabin-wall.glb'),
-    load('/models/lodge/cabin-window-large.glb'),
-    load('/models/lodge/cabin-roof-snow.glb'),
-    load('/models/lodge/cabin-roof-snow-chimney.glb'),
-    load('/models/lodge/cabin-doorway.glb'),
-    load('/models/lodge/cabin-corner-logs.glb'),
+    load('models/pines/Pine_1.gltf'),
+    load('models/pines/Pine_2.gltf'),
+    load('models/pines/Pine_3.gltf'),
+    load('models/trees/tree-snow-a.glb'),
+    load('models/trees/tree-snow-b.glb'),
+    load('models/trees/tree-snow-c.glb'),
+    load('models/Fox.glb'),
+    load('models/Rogue.glb'),
+    load('models/lodge/cabin-wall.glb'),
+    load('models/lodge/cabin-window-large.glb'),
+    load('models/lodge/cabin-roof-snow.glb'),
+    load('models/lodge/cabin-roof-snow-chimney.glb'),
+    load('models/lodge/cabin-doorway.glb'),
+    load('models/lodge/cabin-corner-logs.glb'),
   ]).then((files) => {
     const [p1, p2, p3, a, b, c, fox, skier, wall, win, roof, chimney, door, logs] = files;
     return {
