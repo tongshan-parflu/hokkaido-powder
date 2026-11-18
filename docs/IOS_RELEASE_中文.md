@@ -1,5 +1,19 @@
 # 把《北海道粉雪》送到 App Store（没有 Mac 也能做）
 
+云端构建从一份干净的克隆开始，不需要你本机先装好依赖：
+
+```bash
+git clone <这个仓库>
+cd <仓库目录>
+npm ci
+npm run build
+npx cap sync ios
+```
+
+这三步在 Codemagic 和 GitHub Actions 里也会原样执行。`npm ci` 必须成功，所以依赖都锁在 `package-lock.json` 里。
+
+
+
 你不需要自己的 Mac。打包、签名、上传 TestFlight 都在云端完成。你需要的是一个 Apple 开发者账号，和下面这份密钥。
 
 应用信息（已写在工程里，以后想改就改 `capacitor.config.json`）：

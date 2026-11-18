@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "ios:sync": "npm run build && npx cap sync ios",
     "preview": "vite preview",
     "sim": "node scripts/sim.mjs"
   },
@@ -19,6 +20,7 @@
   },
   "devDependencies": {
     "@capacitor/cli": "^8.6.2",
+    "@gltf-transform/cli": "^4.5.1",
     "vite": "^6.0.3"
   }
 }
